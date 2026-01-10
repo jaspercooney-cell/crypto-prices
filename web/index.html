@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Perp Insights — Prices & Funding</title>
+  <title>Perp Insights — Prices, Funding, Leaderboard, Arb PnL</title>
 
   <style>
     body { font-family: Arial, sans-serif; background:#0f172a; color:#e5e7eb; padding:24px; }
@@ -34,6 +34,54 @@
       outline: 1px solid rgba(250, 204, 21, 0.35);
       outline-offset: -1px;
     }
+
+    /* Tabs */
+    .tabs { display:flex; gap:8px; margin: 14px 0 16px 0; flex-wrap:wrap; }
+    .tab-btn {
+      cursor:pointer;
+      padding:8px 12px;
+      border-radius:10px;
+      border:1px solid #1f2937;
+      background:#0b1220;
+      color:#cbd5e1;
+      font-size:14px;
+    }
+    .tab-btn.active {
+      background:#111827;
+      border-color:#334155;
+      color:#e5e7eb;
+    }
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; }
+
+    /* Inputs */
+    .grid { display:grid; gap:12px; }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    @media (max-width: 820px) { .grid-2 { grid-template-columns: 1fr; } }
+    label { display:block; font-size:12px; color:#cbd5e1; margin-bottom:6px; }
+    input, select {
+      width:100%;
+      padding:10px 10px;
+      border-radius:10px;
+      border:1px solid #1f2937;
+      background:#0b1220;
+      color:#e5e7eb;
+      outline:none;
+    }
+    .kpi {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:10px 12px; border-radius:12px; border:1px solid #1f2937; background:#0b1220;
+    }
+    .kpi .v { font-weight:700; }
+    .btn {
+      cursor:pointer;
+      padding:10px 12px;
+      border-radius:10px;
+      border:1px solid #1f2937;
+      background:#0b1220;
+      color:#e5e7eb;
+      font-size:14px;
+    }
   </style>
 </head>
 
@@ -48,51 +96,153 @@
     <b>Row will highlight when price difference exceeds or equals 5bp</b>
   </div>
 
-  <!-- PRICES TABLE -->
-  <div class="card">
-    <div class="dash-title">
-      <h2>Prices</h2>
-      <div class="muted" id="priceStatus">Loading…</div>
-    </div>
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="prices">Prices</button>
+    <button class="tab-btn" data-tab="funding">Funding</button>
+    <button class="tab-btn" data-tab="leaderboard">Leaderboard</button>
+    <button class="tab-btn" data-tab="arb">Arb PnL Estimator</button>
+  </div>
 
-    <table>
-      <thead>
-        <tr>
-          <th>Asset</th>
-          <th class="right">Hyperliquid (Mark)</th>
-          <th class="right">Aster (Last)</th>
-          <th class="right">$ Diff</th>
-          <th class="right">bps Diff</th>
-        </tr>
-      </thead>
-      <tbody id="priceRows"></tbody>
-    </table>
+  <!-- PRICES TAB -->
+  <div id="tab-prices" class="tab-panel active">
+    <div class="card">
+      <div class="dash-title">
+        <h2>Prices</h2>
+        <div class="muted" id="priceStatus">Loading…</div>
+      </div>
 
-    <div class="muted">
-      $ Diff is positive when Aster is trading higher than Hyperliquid. bps Diff uses Hyperliquid as the denominator.
+      <table>
+        <thead>
+          <tr>
+            <th>Asset</th>
+            <th class="right">Hyperliquid (Mark)</th>
+            <th class="right">Aster (Last)</th>
+            <th class="right">$ Diff</th>
+            <th class="right">bps Diff</th>
+          </tr>
+        </thead>
+        <tbody id="priceRows"></tbody>
+      </table>
+
+      <div class="muted">
+        $ Diff is positive when Aster is trading higher than Hyperliquid. bps Diff uses Hyperliquid as the denominator.
+      </div>
     </div>
   </div>
 
-  <!-- FUNDING TABLE -->
-  <div class="card">
-    <div class="dash-title">
-      <h2>Funding Rates</h2>
-      <div class="muted" id="fundingStatus">Loading…</div>
+  <!-- FUNDING TAB -->
+  <div id="tab-funding" class="tab-panel">
+    <div class="card">
+      <div class="dash-title">
+        <h2>Funding Rates</h2>
+        <div class="muted" id="fundingStatus">Loading…</div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Asset</th>
+            <th class="right">Hyperliquid Funding</th>
+            <th class="right">Aster Funding</th>
+          </tr>
+        </thead>
+        <tbody id="fundingRows"></tbody>
+      </table>
+
+      <div class="muted">
+        Funding is shown as a rate (decimal → %).
+      </div>
     </div>
+  </div>
 
-    <table>
-      <thead>
-        <tr>
-          <th>Asset</th>
-          <th class="right">Hyperliquid Funding</th>
-          <th class="right">Aster Funding</th>
-        </tr>
-      </thead>
-      <tbody id="fundingRows"></tbody>
-    </table>
+  <!-- LEADERBOARD TAB -->
+  <div id="tab-leaderboard" class="tab-panel">
+    <div class="card">
+      <div class="dash-title">
+        <h2>Leaderboard (|bps| desc)</h2>
+        <div class="muted" id="leaderStatus">Uses latest Prices refresh</div>
+      </div>
 
-    <div class="muted">
-      Funding is shown as a rate (decimal → %).
+      <table>
+        <thead>
+          <tr>
+            <th>Asset</th>
+            <th class="right">Hyperliquid</th>
+            <th class="right">Aster</th>
+            <th class="right">$ Diff</th>
+            <th class="right">bps Diff</th>
+          </tr>
+        </thead>
+        <tbody id="leaderRows"></tbody>
+      </table>
+
+      <div class="muted">
+        Sorted by absolute bps difference. Rows highlight at ≥ 5 bps.
+      </div>
+    </div>
+  </div>
+
+  <!-- ARB PNL TAB -->
+  <div id="tab-arb" class="tab-panel">
+    <div class="card">
+      <div class="dash-title">
+        <h2>Arb PnL Estimator</h2>
+        <div class="muted">Estimate gross/fees/net for convergence trades</div>
+      </div>
+
+      <div class="grid grid-2" style="margin-top:12px;">
+        <div>
+          <label>Asset</label>
+          <select id="arbAsset"></select>
+        </div>
+
+        <div>
+          <label>Notional (USD)</label>
+          <input id="arbNotional" type="number" value="100000" min="0" step="1000" />
+        </div>
+
+        <div>
+          <label>Expected Convergence (bps)</label>
+          <input id="arbConvBps" type="number" value="5" step="0.1" />
+        </div>
+
+        <div>
+          <label>Fees (bps per leg, round-trip total)</label>
+          <input id="arbFeesBps" type="number" value="2" step="0.1" />
+        </div>
+
+        <div>
+          <label>Slippage (bps, total)</label>
+          <input id="arbSlipBps" type="number" value="1" step="0.1" />
+        </div>
+
+        <div>
+          <label>Direction</label>
+          <select id="arbDir">
+            <option value="auto" selected>Auto (based on current diff)</option>
+            <option value="sell_aster_buy_hyper">Sell Aster / Buy Hyper</option>
+            <option value="buy_aster_sell_hyper">Buy Aster / Sell Hyper</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+        <button class="btn" id="arbRecalc">Recalculate</button>
+        <div class="muted" id="arbHint">Uses latest live prices. Gross assumes convergence by the entered bps.</div>
+      </div>
+
+      <div class="grid grid-2" style="margin-top:14px;">
+        <div class="kpi"><div>Current bps diff</div><div class="v" id="arbCurBps">—</div></div>
+        <div class="kpi"><div>Gross PnL (USD)</div><div class="v" id="arbGross">—</div></div>
+        <div class="kpi"><div>Fees (USD)</div><div class="v" id="arbFees">—</div></div>
+        <div class="kpi"><div>Slippage (USD)</div><div class="v" id="arbSlip">—</div></div>
+        <div class="kpi"><div>Net PnL (USD)</div><div class="v" id="arbNet">—</div></div>
+        <div class="kpi"><div>Suggested trade</div><div class="v" id="arbTrade">—</div></div>
+      </div>
+
+      <div class="muted" style="margin-top:10px;">
+        Formula: Gross ≈ Notional × (Convergence bps / 10,000). Fees/Slippage ≈ Notional × (bps / 10,000).
+      </div>
     </div>
   </div>
 
@@ -122,8 +272,30 @@
 
   const priceRows = document.getElementById("priceRows");
   const fundingRows = document.getElementById("fundingRows");
+  const leaderRows = document.getElementById("leaderRows");
+
   const priceStatus = document.getElementById("priceStatus");
   const fundingStatus = document.getElementById("fundingStatus");
+  const leaderStatus = document.getElementById("leaderStatus");
+
+  // Arb UI
+  const arbAsset = document.getElementById("arbAsset");
+  const arbNotional = document.getElementById("arbNotional");
+  const arbConvBps = document.getElementById("arbConvBps");
+  const arbFeesBps = document.getElementById("arbFeesBps");
+  const arbSlipBps = document.getElementById("arbSlipBps");
+  const arbDir = document.getElementById("arbDir");
+  const arbRecalc = document.getElementById("arbRecalc");
+
+  const arbCurBps = document.getElementById("arbCurBps");
+  const arbGross = document.getElementById("arbGross");
+  const arbFees = document.getElementById("arbFees");
+  const arbSlip = document.getElementById("arbSlip");
+  const arbNet = document.getElementById("arbNet");
+  const arbTrade = document.getElementById("arbTrade");
+
+  // Latest snapshot used by Leaderboard + Arb
+  let latestSnapshot = []; // { key, hPx, aPx, diffUsd, bps }
 
   function fmtUsd(x) {
     if (x === undefined || x === null || x === "" || Number.isNaN(Number(x))) return "—";
@@ -157,6 +329,13 @@
     return (n >= 0 ? "" : "−") + Math.abs(n).toFixed(Math.abs(n) < 0.01 ? 4 : 3) + "%";
   }
 
+  function fmtMoney(x) {
+    if (!Number.isFinite(x)) return "—";
+    const n = Number(x);
+    const s = (n >= 0 ? "" : "−") + "$" + Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    return s;
+  }
+
   function setCell(id, text, cls="") {
     const el = document.getElementById(id);
     if (!el) return;
@@ -179,6 +358,31 @@
     return r.json();
   }
 
+  // ---------- Tabs ----------
+  function initTabs() {
+    const btns = document.querySelectorAll(".tab-btn");
+    const panels = {
+      prices: document.getElementById("tab-prices"),
+      funding: document.getElementById("tab-funding"),
+      leaderboard: document.getElementById("tab-leaderboard"),
+      arb: document.getElementById("tab-arb"),
+    };
+
+    btns.forEach(b => {
+      b.addEventListener("click", () => {
+        btns.forEach(x => x.classList.remove("active"));
+        b.classList.add("active");
+
+        Object.values(panels).forEach(p => p.classList.remove("active"));
+        const key = b.getAttribute("data-tab");
+        panels[key].classList.add("active");
+
+        // If user opens Arb tab, ensure it renders using latest snapshot
+        if (key === "arb") renderArb();
+      });
+    });
+  }
+
   // ---------- Build tables ----------
   function buildTables() {
     priceRows.innerHTML = ASSETS.map(a => `
@@ -198,6 +402,70 @@
         <td class="right" id="af_${a.key}">Loading…</td>
       </tr>
     `).join("");
+
+    leaderRows.innerHTML = `<tr><td colspan="5" class="muted">Waiting for first price refresh…</td></tr>`;
+  }
+
+  // ---------- Arb UI ----------
+  function initArbUI() {
+    arbAsset.innerHTML = ASSETS.map(a => `<option value="${a.key}">${a.key}</option>`).join("");
+    arbAsset.value = "BTC";
+
+    ["change", "input"].forEach(ev => {
+      arbAsset.addEventListener(ev, renderArb);
+      arbNotional.addEventListener(ev, renderArb);
+      arbConvBps.addEventListener(ev, renderArb);
+      arbFeesBps.addEventListener(ev, renderArb);
+      arbSlipBps.addEventListener(ev, renderArb);
+      arbDir.addEventListener(ev, renderArb);
+    });
+
+    arbRecalc.addEventListener("click", renderArb);
+  }
+
+  function renderArb() {
+    const asset = arbAsset.value;
+    const row = (latestSnapshot || []).find(x => x.key === asset);
+
+    const notional = Number(arbNotional.value || 0);
+    const convBps = Number(arbConvBps.value || 0);
+    const feesBps = Number(arbFeesBps.value || 0);
+    const slipBps = Number(arbSlipBps.value || 0);
+
+    const curBps = Number.isFinite(row?.bps) ? row.bps : null;
+
+    const curTxt = curBps === null ? "—" : fmtBps(curBps).text;
+    arbCurBps.textContent = curTxt;
+
+    // Suggested direction
+    let dir = arbDir.value;
+    let suggestion = "—";
+    if (dir === "auto") {
+      if (curBps === null) suggestion = "—";
+      else if (curBps >= 0) suggestion = "Sell Aster / Buy Hyper";
+      else suggestion = "Buy Aster / Sell Hyper";
+    } else if (dir === "sell_aster_buy_hyper") {
+      suggestion = "Sell Aster / Buy Hyper";
+    } else if (dir === "buy_aster_sell_hyper") {
+      suggestion = "Buy Aster / Sell Hyper";
+    }
+    arbTrade.textContent = suggestion;
+
+    // PnL model:
+    // Gross = notional * convBps / 10000
+    // Fees = notional * feesBps / 10000
+    // Slippage = notional * slipBps / 10000
+    // Net = Gross - Fees - Slippage
+    const gross = notional * (convBps / 10000);
+    const fees = notional * (feesBps / 10000);
+    const slip = notional * (slipBps / 10000);
+    const net = gross - fees - slip;
+
+    arbGross.textContent = fmtMoney(gross);
+    arbFees.textContent = fmtMoney(fees);
+    arbSlip.textContent = fmtMoney(slip);
+    arbNet.textContent = fmtMoney(net);
+    arbNet.className = "v " + (net >= 0 ? "pos" : "neg");
   }
 
   // ---------- Hyperliquid (mark + funding) ----------
@@ -232,11 +500,37 @@
     return out;
   }
 
+  // ---------- Leaderboard ----------
+  function renderLeaderboard() {
+    if (!leaderRows) return;
+
+    const rows = (latestSnapshot || [])
+      .filter(x => Number.isFinite(x.bps))
+      .sort((a, b) => Math.abs(b.bps) - Math.abs(a.bps))
+      .slice(0, 50);
+
+    leaderRows.innerHTML = rows.map(x => {
+      const d = fmtDiff(x.diffUsd);
+      const b = fmtBps(x.bps);
+      const hot = Math.abs(x.bps) >= BPS_HIGHLIGHT ? "hot" : "";
+      return `
+        <tr class="${hot}">
+          <td class="asset">${x.key}</td>
+          <td class="right">${fmtUsd(x.hPx)}</td>
+          <td class="right">${fmtUsd(x.aPx)}</td>
+          <td class="right ${d.cls}">${d.text}</td>
+          <td class="right ${b.cls}">${b.text}</td>
+        </tr>
+      `;
+    }).join("") || `<tr><td colspan="5" class="muted">No data yet…</td></tr>`;
+  }
+
   // ---------- Refresh loops ----------
   async function refreshPrices() {
     const started = Date.now();
     priceStatus.textContent = "Updating…";
     priceStatus.className = "muted";
+    leaderStatus.textContent = "Updating…";
 
     const [hlRes, apRes] = await Promise.allSettled([
       loadHyperliquidCtx(),
@@ -245,6 +539,8 @@
 
     const hl = (hlRes.status === "fulfilled") ? hlRes.value : new Map();
     const ap = (apRes.status === "fulfilled") ? apRes.value : new Map();
+
+    const snap = [];
 
     for (const a of ASSETS) {
       const hPxRaw = hl.get(a.hyper)?.markPx;
@@ -257,8 +553,8 @@
       const aPx = Number(aPxRaw);
 
       // $ diff
-      const diff = (Number.isFinite(aPx) && Number.isFinite(hPx)) ? (aPx - hPx) : null;
-      const d = fmtDiff(diff);
+      const diffUsd = (Number.isFinite(aPx) && Number.isFinite(hPx)) ? (aPx - hPx) : null;
+      const d = fmtDiff(diffUsd);
       setCell(`df_${a.key}`, d.text, d.cls);
 
       // bps diff (denominator = Hyperliquid)
@@ -270,11 +566,18 @@
 
       // row highlight when |bps| >= threshold
       setRowHot(a.key, Number.isFinite(bps) && Math.abs(bps) >= BPS_HIGHLIGHT);
+
+      snap.push({ key: a.key, hPx, aPx, diffUsd, bps });
     }
+
+    latestSnapshot = snap;
+    renderLeaderboard();
+    renderArb();
 
     const ms = Date.now() - started;
     priceStatus.textContent = `Updated: ${new Date().toLocaleTimeString()} (${ms} ms)`;
     priceStatus.className = "muted ok";
+    leaderStatus.textContent = `Updated: ${new Date().toLocaleTimeString()} (${ms} ms)`;
   }
 
   async function refreshFunding() {
@@ -300,14 +603,21 @@
     fundingStatus.className = "muted ok";
   }
 
-  // Init
-  buildTables();
-  refreshPrices();
-  refreshFunding();
+  // ---------- Init ----------
+  function init() {
+    initTabs();
+    buildTables();
+    initArbUI();
 
-  // Prices faster; funding slower
-  setInterval(refreshPrices, 2000);
-  setInterval(refreshFunding, 60000);
+    refreshPrices();
+    refreshFunding();
+
+    // Prices faster; funding slower
+    setInterval(refreshPrices, 2000);
+    setInterval(refreshFunding, 60000);
+  }
+
+  init();
 </script>
 </body>
 </html>
