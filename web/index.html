@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Live Prices + Funding — Hyperliquid / Aster</title>
+  <title>Perp Insights — Prices & Funding</title>
 
   <style>
     body { font-family: Arial, sans-serif; background:#0f172a; color:#e5e7eb; padding:24px; }
     h1 { margin: 0 0 8px 0; }
-    .sub { color:#9ca3af; margin-bottom:16px; }
-    .card { background:#111827; border-radius:12px; padding:16px; max-width: 980px; }
+    .sub { color:#9ca3af; margin-bottom:16px; line-height: 1.45; }
+    .card { background:#111827; border-radius:12px; padding:16px; max-width: 1100px; margin-bottom:16px; }
     table { width:100%; border-collapse: collapse; }
     th, td { padding: 12px 10px; border-bottom: 1px solid #1f2937; }
     th { color:#cbd5e1; font-weight: 600; text-align:left; }
@@ -22,43 +22,88 @@
       font-size:12px; color:#cbd5e1; margin-right:6px;
     }
     .ok { color:#86efac; }
+    .err { color:#fca5a5; }
+    .pos { color:#86efac; } /* Aster > Hyper */
+    .neg { color:#fca5a5; } /* Aster < Hyper */
+    .dash-title { display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    .dash-title h2 { margin: 0; font-size: 16px; color:#e5e7eb; }
+
+    /* Row highlight when |bps| >= 5 */
+    .hot {
+      background: rgba(250, 204, 21, 0.12);
+      outline: 1px solid rgba(250, 204, 21, 0.35);
+      outline-offset: -1px;
+    }
   </style>
 </head>
 
 <body>
-  <h1>Live Prices + Funding</h1>
+  <h1>Perp Insights</h1>
   <div class="sub">
-    <span class="pill">Hyperliquid (Mark + Funding)</span>
-    <span class="pill">Aster (Last + Funding)</span>
+    <span class="pill">Hyperliquid</span>
+    <span class="pill">Aster</span>
+    <span class="pill">$ Diff = Aster − Hyperliquid</span>
+    <span class="pill">bps = 10,000 × (Aster − Hyper) / Hyper</span><br/>
+    Prices refresh every <b>2s</b> · Funding refresh every <b>60s</b><br/>
+    <b>Row will highlight when price difference exceeds or equals 5bp</b>
   </div>
 
+  <!-- PRICES TABLE -->
   <div class="card">
+    <div class="dash-title">
+      <h2>Prices</h2>
+      <div class="muted" id="priceStatus">Loading…</div>
+    </div>
+
     <table>
       <thead>
         <tr>
           <th>Asset</th>
-          <th class="right">Hyperliquid Price</th>
+          <th class="right">Hyperliquid (Mark)</th>
+          <th class="right">Aster (Last)</th>
+          <th class="right">$ Diff</th>
+          <th class="right">bps Diff</th>
+        </tr>
+      </thead>
+      <tbody id="priceRows"></tbody>
+    </table>
+
+    <div class="muted">
+      $ Diff is positive when Aster is trading higher than Hyperliquid. bps Diff uses Hyperliquid as the denominator.
+    </div>
+  </div>
+
+  <!-- FUNDING TABLE -->
+  <div class="card">
+    <div class="dash-title">
+      <h2>Funding Rates</h2>
+      <div class="muted" id="fundingStatus">Loading…</div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Asset</th>
           <th class="right">Hyperliquid Funding</th>
-          <th class="right">Aster Price</th>
           <th class="right">Aster Funding</th>
         </tr>
       </thead>
-      <tbody id="rows"></tbody>
+      <tbody id="fundingRows"></tbody>
     </table>
 
-    <div class="muted" id="status">Loading…</div>
     <div class="muted">
-      Funding shown as <b>rate</b> (decimal → %) from each venue’s public endpoints.
+      Funding is shown as a rate (decimal → %).
     </div>
   </div>
 
 <script>
-  // Cloudflare Worker proxy (must end with ?url=)
+  // ✅ Your Cloudflare Worker proxy (must end with ?url=)
   const PROXY_BASE = "https://purple-sky-264e.jasper-cooney.workers.dev/?url=";
 
-  // Add/remove symbols here.
-  // hyper: Hyperliquid coin name
-  // aster: Aster futures symbol
+  // Highlight threshold
+  const BPS_HIGHLIGHT = 5;
+
+  // Add/remove symbols here
   const ASSETS = [
     { key:"BTC", hyper:"BTC", aster:"BTCUSDT" },
     { key:"ETH", hyper:"ETH", aster:"ETHUSDT" },
@@ -75,116 +120,194 @@
     { key:"DOT",  hyper:"DOT",  aster:"DOTUSDT"  },
   ];
 
-  const elRows = document.getElementById("rows");
-  const elStatus = document.getElementById("status");
+  const priceRows = document.getElementById("priceRows");
+  const fundingRows = document.getElementById("fundingRows");
+  const priceStatus = document.getElementById("priceStatus");
+  const fundingStatus = document.getElementById("fundingStatus");
 
   function fmtUsd(x) {
     if (x === undefined || x === null || x === "" || Number.isNaN(Number(x))) return "—";
     const n = Number(x);
     return n >= 1
-      ? "$" + n.toLocaleString(undefined,{maximumFractionDigits:2})
-      : "$" + n.toLocaleString(undefined,{maximumFractionDigits:6});
+      ? "$" + n.toLocaleString(undefined, { maximumFractionDigits: 2 })
+      : "$" + n.toLocaleString(undefined, { maximumFractionDigits: 6 });
+  }
+
+  function fmtDiff(x) {
+    if (x === undefined || x === null || Number.isNaN(Number(x))) return { text: "—", cls: "" };
+    const n = Number(x);
+    const abs = Math.abs(n);
+    const s = (n >= 0 ? "+" : "−") + "$" + abs.toLocaleString(undefined, {
+      maximumFractionDigits: abs >= 1 ? 2 : 6
+    });
+    return { text: s, cls: n > 0 ? "pos" : (n < 0 ? "neg" : "") };
+  }
+
+  function fmtBps(x) {
+    if (x === undefined || x === null || Number.isNaN(Number(x))) return { text: "—", cls: "" };
+    const n = Number(x);
+    const abs = Math.abs(n);
+    const s = (n >= 0 ? "+" : "−") + abs.toFixed(abs < 10 ? 2 : 1) + " bps";
+    return { text: s, cls: n > 0 ? "pos" : (n < 0 ? "neg" : "") };
   }
 
   function fmtFunding(x) {
     if (x === undefined || x === null || x === "" || Number.isNaN(Number(x))) return "—";
     const n = Number(x) * 100;
-    // show small rates nicely
-    return (n >= 0 ? "" : "−") + Math.abs(n).toFixed(n < 0.01 ? 4 : 3) + "%";
+    return (n >= 0 ? "" : "−") + Math.abs(n).toFixed(Math.abs(n) < 0.01 ? 4 : 3) + "%";
   }
 
-  function buildTable() {
-    elRows.innerHTML = ASSETS.map(a => `
-      <tr>
+  function setCell(id, text, cls="") {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = text;
+    el.className = "right " + cls;
+  }
+
+  function setRowHot(assetKey, isHot) {
+    const row = document.getElementById(`pr_${assetKey}`);
+    if (!row) return;
+    row.classList.toggle("hot", !!isHot);
+  }
+
+  async function fetchJson(url, options) {
+    const r = await fetch(PROXY_BASE + encodeURIComponent(url), {
+      cache: "no-store",
+      ...(options || {})
+    });
+    if (!r.ok) throw new Error(String(r.status));
+    return r.json();
+  }
+
+  // ---------- Build tables ----------
+  function buildTables() {
+    priceRows.innerHTML = ASSETS.map(a => `
+      <tr id="pr_${a.key}">
         <td class="asset">${a.key}</td>
         <td class="right" id="hp_${a.key}">Loading…</td>
-        <td class="right" id="hf_${a.key}">Loading…</td>
         <td class="right" id="ap_${a.key}">Loading…</td>
+        <td class="right" id="df_${a.key}">Loading…</td>
+        <td class="right" id="bp_${a.key}">Loading…</td>
+      </tr>
+    `).join("");
+
+    fundingRows.innerHTML = ASSETS.map(a => `
+      <tr>
+        <td class="asset">${a.key}</td>
+        <td class="right" id="hf_${a.key}">Loading…</td>
         <td class="right" id="af_${a.key}">Loading…</td>
       </tr>
     `).join("");
   }
 
-  async function fetchJson(url, options) {
-    const r = await fetch(PROXY_BASE + encodeURIComponent(url), { cache:"no-store", ...(options||{}) });
-    if (!r.ok) throw new Error(String(r.status));
-    return r.json();
-  }
-
   // ---------- Hyperliquid (mark + funding) ----------
   async function loadHyperliquidCtx() {
-    // POST https://api.hyperliquid.xyz/info  { type:"metaAndAssetCtxs" }
-    const j = await fetchJson(
-      "https://api.hyperliquid.xyz/info",
-      {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ type:"metaAndAssetCtxs" })
-      }
-    );
+    const j = await fetchJson("https://api.hyperliquid.xyz/info", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "metaAndAssetCtxs" })
+    });
 
     const meta = j[0], ctxs = j[1];
     const out = new Map(); // coin -> { markPx, funding }
-    meta.universe.forEach((u,i) => {
+    meta.universe.forEach((u, i) => {
       const c = ctxs[i] || {};
       out.set(u.name, { markPx: c.markPx, funding: c.funding });
     });
     return out;
   }
 
-  // ---------- Aster (last price + funding via premiumIndex) ----------
-  async function loadAsterPrices() {
-    // GET /fapi/v1/ticker/price without symbol returns array
+  // ---------- Aster (prices + funding) ----------
+  async function loadAsterPricesAll() {
     const j = await fetchJson("https://fapi.asterdex.com/fapi/v1/ticker/price");
-    const out = new Map(); // symbol -> last price
+    const out = new Map(); // symbol -> price
     if (Array.isArray(j)) j.forEach(x => out.set(x.symbol, x.price));
-    else if (j && j.symbol) out.set(j.symbol, j.price);
     return out;
   }
 
-  async function loadAsterPremiumIndex() {
-    // GET /fapi/v1/premiumIndex without symbol returns array
+  async function loadAsterPremiumAll() {
     const j = await fetchJson("https://fapi.asterdex.com/fapi/v1/premiumIndex");
-    const out = new Map(); // symbol -> { lastFundingRate, markPrice }
-    const arr = Array.isArray(j) ? j : [j];
-    arr.forEach(x => {
-      if (x && x.symbol) out.set(x.symbol, { lastFundingRate: x.lastFundingRate, markPrice: x.markPrice });
-    });
+    const out = new Map(); // symbol -> lastFundingRate
+    if (Array.isArray(j)) j.forEach(x => out.set(x.symbol, x.lastFundingRate));
     return out;
   }
 
-  async function refresh() {
-    elStatus.textContent = "Updating…";
+  // ---------- Refresh loops ----------
+  async function refreshPrices() {
+    const started = Date.now();
+    priceStatus.textContent = "Updating…";
+    priceStatus.className = "muted";
 
-    // Fetch all venue data in parallel
-    const [hl, asterPrices, asterPrem] = await Promise.allSettled([
+    const [hlRes, apRes] = await Promise.allSettled([
       loadHyperliquidCtx(),
-      loadAsterPrices(),
-      loadAsterPremiumIndex(),
+      loadAsterPricesAll()
     ]);
 
-    const hlMap = (hl.status === "fulfilled") ? hl.value : new Map();
-    const apMap = (asterPrices.status === "fulfilled") ? asterPrices.value : new Map();
-    const aiMap = (asterPrem.status === "fulfilled") ? asterPrem.value : new Map();
+    const hl = (hlRes.status === "fulfilled") ? hlRes.value : new Map();
+    const ap = (apRes.status === "fulfilled") ? apRes.value : new Map();
 
-    ASSETS.forEach(a => {
-      // Hyperliquid
-      const h = hlMap.get(a.hyper);
-      document.getElementById(`hp_${a.key}`).textContent = fmtUsd(h?.markPx);
-      document.getElementById(`hf_${a.key}`).textContent = fmtFunding(h?.funding);
+    for (const a of ASSETS) {
+      const hPxRaw = hl.get(a.hyper)?.markPx;
+      const aPxRaw = ap.get(a.aster);
 
-      // Aster
-      document.getElementById(`ap_${a.key}`).textContent = fmtUsd(apMap.get(a.aster));
-      document.getElementById(`af_${a.key}`).textContent = fmtFunding(aiMap.get(a.aster)?.lastFundingRate);
-    });
+      setCell(`hp_${a.key}`, fmtUsd(hPxRaw), (hlRes.status === "rejected" ? "err" : ""));
+      setCell(`ap_${a.key}`, fmtUsd(aPxRaw), (apRes.status === "rejected" ? "err" : ""));
 
-    elStatus.textContent = "Updated: " + new Date().toLocaleTimeString();
-    elStatus.className = "muted ok";
+      const hPx = Number(hPxRaw);
+      const aPx = Number(aPxRaw);
+
+      // $ diff
+      const diff = (Number.isFinite(aPx) && Number.isFinite(hPx)) ? (aPx - hPx) : null;
+      const d = fmtDiff(diff);
+      setCell(`df_${a.key}`, d.text, d.cls);
+
+      // bps diff (denominator = Hyperliquid)
+      const bps = (Number.isFinite(aPx) && Number.isFinite(hPx) && hPx !== 0)
+        ? (10000 * (aPx - hPx) / hPx)
+        : null;
+      const b = fmtBps(bps);
+      setCell(`bp_${a.key}`, b.text, b.cls);
+
+      // row highlight when |bps| >= threshold
+      setRowHot(a.key, Number.isFinite(bps) && Math.abs(bps) >= BPS_HIGHLIGHT);
+    }
+
+    const ms = Date.now() - started;
+    priceStatus.textContent = `Updated: ${new Date().toLocaleTimeString()} (${ms} ms)`;
+    priceStatus.className = "muted ok";
   }
 
-  buildTable();
-  refresh();
-  setInterval(refresh, 2000);
+  async function refreshFunding() {
+    const started = Date.now();
+    fundingStatus.textContent = "Updating…";
+    fundingStatus.className = "muted";
+
+    const [hlRes, afRes] = await Promise.allSettled([
+      loadHyperliquidCtx(),
+      loadAsterPremiumAll()
+    ]);
+
+    const hl = (hlRes.status === "fulfilled") ? hlRes.value : new Map();
+    const af = (afRes.status === "fulfilled") ? afRes.value : new Map();
+
+    for (const a of ASSETS) {
+      setCell(`hf_${a.key}`, fmtFunding(hl.get(a.hyper)?.funding), (hlRes.status === "rejected" ? "err" : ""));
+      setCell(`af_${a.key}`, fmtFunding(af.get(a.aster)), (afRes.status === "rejected" ? "err" : ""));
+    }
+
+    const ms = Date.now() - started;
+    fundingStatus.textContent = `Updated: ${new Date().toLocaleTimeString()} (${ms} ms)`;
+    fundingStatus.className = "muted ok";
+  }
+
+  // Init
+  buildTables();
+  refreshPrices();
+  refreshFunding();
+
+  // Prices faster; funding slower
+  setInterval(refreshPrices, 2000);
+  setInterval(refreshFunding, 60000);
 </script>
 </body>
 </html>
