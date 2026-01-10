@@ -94,8 +94,7 @@
     <span class="pill">Aster</span>
     <span class="pill">$ Diff = Aster − Hyperliquid</span>
     <span class="pill">bps = 10,000 × (Aster − Hyper) / Hyper</span><br/>
-    Prices refresh every <b>2s</b> · Funding refresh every <b>60s</b><br/>
-    <b>Row will highlight when price difference exceeds or equals 5bp</b>
+    Prices refresh every <b>2s</b> · Funding refresh every <b>60s</b>
   </div>
 
   <div class="tabs">
@@ -128,6 +127,7 @@
       </table>
 
       <div class="muted">
+        <b>Row will highlight when price difference exceeds or equals 5bp</b><br/>
         $ Diff is positive when Aster is trading higher than Hyperliquid. bps Diff uses Hyperliquid as the denominator.
       </div>
     </div>
@@ -564,7 +564,6 @@
     faAsset.innerHTML = ASSETS.map(a => `<option value="${a.key}">${a.key}</option>`).join("");
     faAsset.value = "BTC";
 
-    // Arb listeners
     ["change","input"].forEach(ev => {
       arbAsset.addEventListener(ev, renderArb);
       arbNotional.addEventListener(ev, renderArb);
@@ -641,7 +640,6 @@
     const hyperInt = rec.hyper?.intervalH;
     const asterInt = rec.aster?.intervalH;
 
-    // windows over holding period
     const hyperWin = (Number.isFinite(hyperInt) && hyperInt > 0) ? (holdH / hyperInt) : null;
     const asterWin = (Number.isFinite(asterInt) && asterInt > 0) ? (holdH / asterInt) : null;
 
@@ -665,17 +663,17 @@
       return;
     }
 
-    // Convention assumed: positive funding => longs pay shorts.
-    // Per window:
-    // - long earns = -rate
-    // - short earns = +rate
     const longRate = (longVenue === "hyper") ? hyperRate : asterRate;
     const shortRate = (shortVenue === "hyper") ? hyperRate : asterRate;
 
     const longWin = (longVenue === "hyper") ? hyperWin : asterWin;
     const shortWin = (shortVenue === "hyper") ? hyperWin : asterWin;
 
-    if (!Number.isFinite(longRate) || !Number.isFinite(shortRate) || !Number.isFinite(longWin) || !Number.isFinite(shortWin)) {
+    const longInt = (longVenue === "hyper") ? hyperInt : asterInt;
+    const shortInt = (shortVenue === "hyper") ? hyperInt : asterInt;
+
+    if (!Number.isFinite(longRate) || !Number.isFinite(shortRate) || !Number.isFinite(longWin) || !Number.isFinite(shortWin) ||
+        !Number.isFinite(longInt) || !Number.isFinite(shortInt)) {
       faCarry.textContent = "Waiting for funding + intervals…";
       faFundingPnl.textContent = "—";
       faCosts.textContent = "—";
@@ -685,9 +683,7 @@
       return;
     }
 
-    // Funding PnL over holding period:
-    // long contribution = notional * (-rate) * windows_long
-    // short contribution = notional * (+rate) * windows_short
+    // Funding convention assumed: positive funding => longs pay shorts.
     const pnlLong = notional * (-longRate) * longWin;
     const pnlShort = notional * (+shortRate) * shortWin;
     const fundingPnl = pnlLong + pnlShort;
@@ -703,18 +699,10 @@
     faNetPct.textContent = fmtPct(netPct);
     faNetPct.className = "v " + ((netPct ?? 0) >= 0 ? "pos" : "neg");
 
-    // Carry direction label (net per hour sign is rough, but useful)
-    if (net > 0) faCarry.textContent = "Positive carry";
-    else if (net < 0) faCarry.textContent = "Negative carry";
-    else faCarry.textContent = "Flat carry";
+    faCarry.textContent = net > 0 ? "Positive carry" : (net < 0 ? "Negative carry" : "Flat carry");
 
-    // “Carry APR” approximation:
-    // Convert each leg to hourly, then net hourly × 24×365
-    const longInt = (longVenue === "hyper") ? hyperInt : asterInt;
-    const shortInt = (shortVenue === "hyper") ? hyperInt : asterInt;
-    const longHourly = (-longRate) / longInt;
-    const shortHourly = (+shortRate) / shortInt;
-    const netApr = (longHourly + shortHourly) * 24 * 365 * 100;
+    // Net carry 365-day (approx):
+    const netApr = (((-longRate) / longInt) + ((+shortRate) / shortInt)) * 24 * 365 * 100;
     faCarryApr.textContent = (netApr >= 0 ? "" : "−") + Math.abs(netApr).toFixed(Math.abs(netApr) < 1 ? 3 : 2) + "%";
     faCarryApr.className = "v " + (netApr >= 0 ? "pos" : "neg");
   }
@@ -728,7 +716,7 @@
     });
 
     const meta = j[0], ctxs = j[1];
-    const out = new Map(); // coin -> { markPx, funding }
+    const out = new Map();
     meta.universe.forEach((u, i) => {
       const c = ctxs[i] || {};
       out.set(u.name, { markPx: c.markPx, funding: c.funding });
@@ -744,9 +732,8 @@
   }
 
   async function loadAsterPremiumAll() {
-    // We keep the whole object per symbol so we can infer interval if fields exist.
     const j = await fetchJson("https://fapi.asterdex.com/fapi/v1/premiumIndex");
-    const out = new Map(); // symbol -> obj
+    const out = new Map();
     if (Array.isArray(j)) j.forEach(x => out.set(x.symbol, x));
     return out;
   }
@@ -754,9 +741,6 @@
   function inferIntervalHoursFromPremium(obj) {
     if (!obj || typeof obj !== "object") return null;
 
-    // Common field names in futures APIs (Binance-like):
-    // - lastFundingTime, nextFundingTime are ms timestamps
-    // Some APIs also have fundingInterval (ms or seconds) or intervalHours.
     const last = Number(obj.lastFundingTime);
     const next = Number(obj.nextFundingTime);
     if (Number.isFinite(last) && Number.isFinite(next) && next > last) {
@@ -765,19 +749,15 @@
 
     const fi = Number(obj.fundingInterval);
     if (Number.isFinite(fi) && fi > 0) {
-      // If it looks like milliseconds
-      if (fi > 100000) return fi / 3600000;
-      // If it looks like seconds
-      if (fi > 60) return fi / 3600;
-      // If it looks like hours
-      return fi;
+      if (fi > 100000) return fi / 3600000; // ms
+      if (fi > 60) return fi / 3600;        // seconds
+      return fi;                            // hours
     }
 
     const ih = Number(obj.intervalHours);
     if (Number.isFinite(ih) && ih > 0) return ih;
 
-    // fallback
-    return 8;
+    return 8; // fallback
   }
 
   // -------- leaderboard --------
@@ -869,29 +849,30 @@
     const hl = (hlRes.status === "fulfilled") ? hlRes.value : new Map();
     const asterPrem = (asterPremRes.status === "fulfilled") ? asterPremRes.value : new Map();
 
-    // Hyperliquid: treat as hourly windows
-    const HL_INTERVAL_H = 1;
+    const HL_INTERVAL_H = 1; // hourly
 
     const lf = {};
 
     for (const a of ASSETS) {
-      const hRate = hl.get(a.hyper)?.funding;
+      const hRateRaw = hl.get(a.hyper)?.funding;
+      const hRate = Number(hRateRaw);
+
       const aObj = asterPrem.get(a.aster);
-      const aRate = aObj?.lastFundingRate ?? aObj?.fundingRate ?? aObj?.funding ?? null;
+      const aRateRaw = aObj?.lastFundingRate ?? aObj?.fundingRate ?? aObj?.funding ?? null;
+      const aRate = Number(aRateRaw);
       const aIntH = inferIntervalHoursFromPremium(aObj);
 
-      // Fill funding table UI
       setCell(`hf_${a.key}`, fmtFunding(hRate), (hlRes.status === "rejected" ? "err" : ""));
       setCell(`hi_${a.key}`, fmtIntervalH(HL_INTERVAL_H));
-      setCell(`ha_${a.key}`, fmtAprFromRate(Number(hRate), HL_INTERVAL_H));
+      setCell(`ha_${a.key}`, fmtAprFromRate(hRate, HL_INTERVAL_H));
 
       setCell(`af_${a.key}`, fmtFunding(aRate), (asterPremRes.status === "rejected" ? "err" : ""));
       setCell(`ai_${a.key}`, fmtIntervalH(aIntH));
-      setCell(`aa_${a.key}`, fmtAprFromRate(Number(aRate), aIntH));
+      setCell(`aa_${a.key}`, fmtAprFromRate(aRate, aIntH));
 
       lf[a.key] = {
-        hyper: { rate: Number(hRate), intervalH: HL_INTERVAL_H },
-        aster: { rate: Number(aRate), intervalH: aIntH }
+        hyper: { rate: hRate, intervalH: HL_INTERVAL_H },
+        aster: { rate: aRate, intervalH: aIntH }
       };
     }
 
