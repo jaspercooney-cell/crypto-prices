@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Perp Price Compare</title>
+  <title>Live Prices — Hyperliquid / Lighter / Aster</title>
   <style>
     body { font-family: Arial, sans-serif; background:#0f172a; color:#e5e7eb; padding:24px; }
     h1 { margin: 0 0 8px 0; }
@@ -14,16 +14,18 @@
     th { color:#cbd5e1; font-weight: 600; }
     .asset { font-weight: 700; }
     .muted { color:#9ca3af; font-size:12px; margin-top:10px; }
-    .pill { display:inline-block; padding:3px 8px; border-radius:999px; background:#0b1220; border:1px solid #1f2937; font-size:12px; color:#cbd5e1; }
     .err { color:#fca5a5; }
-    .ok { color:#86efac; }
+    .ok  { color:#86efac; }
     .right { text-align:right; }
+    .pill { display:inline-block; padding:3px 8px; border-radius:999px; background:#0b1220; border:1px solid #1f2937; font-size:12px; color:#cbd5e1; margin-right:6px; }
   </style>
 </head>
 <body>
-  <h1>Crypto Perp Pricing (Live)</h1>
+  <h1>Live Prices</h1>
   <div class="sub">
-    Side-by-side comparison: <span class="pill">Kraken Futures</span> <span class="pill">OKX Swap</span> <span class="pill">Binance USDⓈ-M</span>
+    <span class="pill">Hyperliquid (Mark)</span>
+    <span class="pill">Lighter (Last trade)</span>
+    <span class="pill">Aster (Last)</span>
   </div>
 
   <div class="card">
@@ -31,148 +33,205 @@
       <thead>
         <tr>
           <th>Asset</th>
-          <th class="right">Kraken (USD)</th>
-          <th class="right">OKX (USDT)</th>
-          <th class="right">Binance (USDT)</th>
+          <th class="right">Hyperliquid</th>
+          <th class="right">Lighter</th>
+          <th class="right">Aster</th>
         </tr>
       </thead>
       <tbody id="rows"></tbody>
     </table>
-
     <div class="muted" id="status">Loading…</div>
     <div class="muted">
-      Notes: OKX/Binance are USDT perps (≈ USD). Kraken uses Futures tickers (USD indices/perps). Some symbols may be unavailable on an exchange.
+      Notes: “USD-ish” depends on venue conventions. Hyperliquid shown as mark. Aster shown as last. Lighter uses most recent trade if available.
     </div>
   </div>
 
 <script>
-/**
- * If you hit CORS issues, set PROXY_BASE to a proxy URL later (instructions below).
- * Leave as "" to call exchanges directly.
- */
-const PROXY_BASE = "https://purple-sky-264e.jasper-cooney.workers.dev/?url=";
-; // e.g. "https://your-proxy.example.com/?url="
+  // ✅ Your Cloudflare Worker proxy (you already updated it)
+  const PROXY_BASE = "https://purple-sky-264e.jasper-cooney.workers.dev/?url=";
 
-const ASSETS = [
-  { key:"BTC", okx:"BTC-USDT-SWAP", binance:"BTCUSDT", krakenFut:"PI_XBTUSD" },
-  { key:"ETH", okx:"ETH-USDT-SWAP", binance:"ETHUSDT", krakenFut:"PI_ETHUSD" },
-  { key:"XRP", okx:"XRP-USDT-SWAP", binance:"XRPUSDT", krakenFut:"PI_XRPUSD" },
-  { key:"SOL", okx:"SOL-USDT-SWAP", binance:"SOLUSDT", krakenFut:"PI_SOLUSD" },
-  { key:"ZEC", okx:"ZEC-USDT-SWAP", binance:"ZECUSDT", krakenFut:"PI_ZECUSD" },
-];
+  const ASSETS = [
+    { key:"BTC", hyper:"BTC", aster:"BTCUSDT" },
+    { key:"ETH", hyper:"ETH", aster:"ETHUSDT" },
+    { key:"XRP", hyper:"XRP", aster:"XRPUSDT" },
+    { key:"SOL", hyper:"SOL", aster:"SOLUSDT" },
+    { key:"ZEC", hyper:"ZEC", aster:"ZECUSDT" },
+  ];
 
-const elRows = document.getElementById("rows");
-const elStatus = document.getElementById("status");
+  const elRows = document.getElementById("rows");
+  const elStatus = document.getElementById("status");
 
-function fmtPrice(x) {
-  if (x === null || x === undefined || x === "" || Number.isNaN(Number(x))) return "—";
-  const n = Number(x);
-  // simple formatting
-  return n >= 1 ? "$" + n.toLocaleString(undefined, { maximumFractionDigits: 2 })
-                : "$" + n.toLocaleString(undefined, { maximumFractionDigits: 6 });
-}
-
-function setCell(id, text, isError=false) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.textContent = text;
-  el.className = "right " + (isError ? "err" : "");
-}
-
-function buildTable() {
-  elRows.innerHTML = ASSETS.map(a => `
-    <tr>
-      <td class="asset">${a.key}</td>
-      <td class="right" id="k_${a.key}">Loading…</td>
-      <td class="right" id="o_${a.key}">Loading…</td>
-      <td class="right" id="b_${a.key}">Loading…</td>
-    </tr>
-  `).join("");
-}
-
-async function fetchJson(url) {
-  const finalUrl = PROXY_BASE ? (PROXY_BASE + encodeURIComponent(url)) : url;
-  const r = await fetch(finalUrl, { cache: "no-store" });
-  if (!r.ok) throw new Error("HTTP " + r.status);
-  return await r.json();
-}
-
-// OKX: REST v5 ticker
-async function loadOKX(asset) {
-  const url = `https://www.okx.com/api/v5/market/ticker?instId=${asset.okx}`;
-  const j = await fetchJson(url);
-  const last = j?.data?.[0]?.last;
-  return last ?? null;
-}
-
-// Binance USDⓈ-M: symbol price ticker v2
-async function loadBinance(asset) {
-  const url = `https://fapi.binance.com/fapi/v2/ticker/price?symbol=${asset.binance}`;
-  const j = await fetchJson(url);
-  return j?.price ?? null;
-}
-
-// Kraken Futures: fetch all tickers once, then pick symbol
-async function loadKrakenFuturesAll() {
-  const url = `https://futures.kraken.com/derivatives/api/v3/tickers`;
-  const j = await fetchJson(url);
-  // response shape has "tickers" array (per docs); keep it flexible
-  const list = j?.tickers || j?.result || j || [];
-  const map = new Map();
-  if (Array.isArray(list)) {
-    for (const t of list) {
-      if (t?.symbol) map.set(t.symbol, t);
-    }
+  function fmtPrice(x) {
+    if (x === null || x === undefined || x === "" || Number.isNaN(Number(x))) return "—";
+    const n = Number(x);
+    return n >= 1
+      ? "$" + n.toLocaleString(undefined, { maximumFractionDigits: 2 })
+      : "$" + n.toLocaleString(undefined, { maximumFractionDigits: 6 });
   }
-  return map;
-}
 
-async function refresh() {
-  const started = Date.now();
-  elStatus.textContent = "Updating…";
-  elStatus.className = "muted";
+  function setCell(id, text, isError=false) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = text;
+    el.className = "right " + (isError ? "err" : "");
+  }
 
-  try {
-    // Kraken tickers in one call
-    const krakenMap = await loadKrakenFuturesAll();
+  function buildTable() {
+    elRows.innerHTML = ASSETS.map(a => `
+      <tr>
+        <td class="asset">${a.key}</td>
+        <td class="right" id="h_${a.key}">Loading…</td>
+        <td class="right" id="l_${a.key}">Loading…</td>
+        <td class="right" id="a_${a.key}">Loading…</td>
+      </tr>
+    `).join("");
+  }
 
-    // Parallel OKX + Binance per asset
-    await Promise.all(ASSETS.map(async a => {
-      // Kraken Futures
-      const kt = krakenMap.get(a.krakenFut);
-      // different fields exist; try a few common ones
-      const kPrice = kt?.last || kt?.markPrice || kt?.indexPrice || kt?.price || null;
-      setCell(`k_${a.key}`, fmtPrice(kPrice));
+  async function fetchJson(url, options) {
+    const finalUrl = PROXY_BASE + encodeURIComponent(url);
+    const r = await fetch(finalUrl, { cache: "no-store", ...(options || {}) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return await r.json();
+  }
 
-      // OKX
-      try {
-        const okxLast = await loadOKX(a);
-        setCell(`o_${a.key}`, fmtPrice(okxLast));
-      } catch (e) {
-        setCell(`o_${a.key}`, "CORS/Err", true);
+  // ---------------- Hyperliquid ----------------
+  async function loadHyperliquidMap() {
+    const url = "https://api.hyperliquid.xyz/info";
+    const body = JSON.stringify({ type: "metaAndAssetCtxs" });
+
+    const j = await fetchJson(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body
+    });
+
+    // Response shape is typically [meta, assetCtxs]
+    const meta = Array.isArray(j) ? j[0] : j?.meta;
+    const ctxs = Array.isArray(j) ? j[1] : j?.assetCtxs;
+
+    const universe = meta?.universe || [];
+    const map = new Map(); // symbol -> markPx
+    if (Array.isArray(universe) && Array.isArray(ctxs)) {
+      for (let i = 0; i < universe.length; i++) {
+        const sym = universe[i]?.name;
+        const mark = ctxs[i]?.markPx;
+        if (sym) map.set(sym, mark);
+      }
+    }
+    return map;
+  }
+
+  // ---------------- Aster ----------------
+  async function loadAsterPrice(symbol) {
+    const url = `https://fapi.asterdex.com/fapi/v1/ticker/price?symbol=${encodeURIComponent(symbol)}`;
+    const j = await fetchJson(url);
+    return j?.price ?? null;
+  }
+
+  // ---------------- Lighter ----------------
+  // Best-effort: take most recent trade price per asset from recentTrades
+  async function loadLighterRecentTrades() {
+    const url = "https://mainnet.zklighter.elliot.ai/api/v1/recentTrades";
+    const j = await fetchJson(url);
+    // handle a few likely shapes
+    if (Array.isArray(j)) return j;
+    if (Array.isArray(j?.data)) return j.data;
+    if (Array.isArray(j?.trades)) return j.trades;
+    return [];
+  }
+
+  function extractSymbol(obj) {
+    // Try common keys
+    return obj?.symbol || obj?.market || obj?.pair || obj?.instrument || obj?.product || "";
+  }
+
+  function extractPrice(obj) {
+    return obj?.price ?? obj?.px ?? obj?.fillPrice ?? obj?.lastPrice ?? obj?.tradePrice ?? null;
+  }
+
+  function matchesAsset(sym, key) {
+    if (!sym || typeof sym !== "string") return false;
+    const s = sym.toUpperCase();
+    // match base only (BTC, ETH, etc) regardless of quote formatting
+    return s.includes(key);
+  }
+
+  function buildLighterPriceMap(trades) {
+    // Keep the first match we see (assuming feed is newest-first).
+    const map = new Map(); // key -> price
+    for (const a of ASSETS) map.set(a.key, null);
+
+    for (const t of trades) {
+      const sym = extractSymbol(t);
+      const px = extractPrice(t);
+      if (!px) continue;
+
+      for (const a of ASSETS) {
+        if (map.get(a.key) === null && matchesAsset(sym, a.key)) {
+          map.set(a.key, px);
+        }
       }
 
-      // Binance
+      // stop early if we filled everything
+      if ([...map.values()].every(v => v !== null)) break;
+    }
+    return map;
+  }
+
+  async function refresh() {
+    const started = Date.now();
+    elStatus.textContent = "Updating…";
+    elStatus.className = "muted";
+
+    // Hyperliquid (do once per refresh)
+    let hyperMap = new Map();
+    try {
+      hyperMap = await loadHyperliquidMap();
+    } catch (e) {
+      for (const a of ASSETS) setCell(`h_${a.key}`, "Err", true);
+    }
+
+    // Lighter (do once per refresh)
+    let lighterMap = new Map();
+    try {
+      const trades = await loadLighterRecentTrades();
+      lighterMap = buildLighterPriceMap(trades);
+    } catch (e) {
+      for (const a of ASSETS) setCell(`l_${a.key}`, "Err", true);
+    }
+
+    // Per-asset fills (Aster is per symbol)
+    await Promise.all(ASSETS.map(async a => {
+      // Hyperliquid mark
+      if (hyperMap.size) {
+        const mark = hyperMap.get(a.hyper);
+        setCell(`h_${a.key}`, fmtPrice(mark));
+      }
+
+      // Lighter last trade
+      if (lighterMap.size) {
+        const px = lighterMap.get(a.key);
+        setCell(`l_${a.key}`, px ? fmtPrice(px) : "—");
+      }
+
+      // Aster last
       try {
-        const bPrice = await loadBinance(a);
-        setCell(`b_${a.key}`, fmtPrice(bPrice));
+        const px = await loadAsterPrice(a.aster);
+        setCell(`a_${a.key}`, fmtPrice(px));
       } catch (e) {
-        setCell(`b_${a.key}`, "CORS/Err", true);
+        setCell(`a_${a.key}`, "Err", true);
       }
     }));
 
     const ms = Date.now() - started;
     elStatus.textContent = `Updated: ${new Date().toLocaleTimeString()} (in ${ms} ms)`;
     elStatus.className = "muted ok";
-  } catch (e) {
-    elStatus.textContent = `Error updating (likely CORS). See the proxy fix below.`;
-    elStatus.className = "muted err";
   }
-}
 
-buildTable();
-refresh();
-setInterval(refresh, 5000); // every 5 seconds
+  buildTable();
+  refresh();
+  setInterval(refresh, 5000);
 </script>
 </body>
 </html>
+
