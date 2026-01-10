@@ -145,15 +145,21 @@
         <thead>
           <tr>
             <th>Asset</th>
-            <th class="right">Hyperliquid Funding</th>
+
+            <th class="right">HL Funding</th>
+            <th class="right">HL Interval</th>
+            <th class="right">HL 365-day</th>
+
             <th class="right">Aster Funding</th>
+            <th class="right">Aster Interval</th>
+            <th class="right">Aster 365-day</th>
           </tr>
         </thead>
         <tbody id="fundingRows"></tbody>
       </table>
 
       <div class="muted">
-        Funding is shown as a rate (decimal → %). Convention assumed: positive funding means longs pay shorts.
+        365-day is normalised as: <b>rate_per_window × (365×24 / interval_hours)</b>. Convention assumed: positive funding means longs pay shorts.
       </div>
     </div>
   </div>
@@ -231,7 +237,7 @@
 
       <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
         <button class="btn" id="arbRecalc">Recalculate</button>
-        <div class="muted" id="arbHint">Uses latest live prices. Gross assumes convergence by the entered bps.</div>
+        <div class="muted">Uses latest live prices. Gross assumes convergence by the entered bps.</div>
       </div>
 
       <div class="grid grid-2" style="margin-top:14px;">
@@ -254,7 +260,7 @@
     <div class="card">
       <div class="dash-title">
         <h2>Funding rate arb calculator</h2>
-        <div class="muted">Estimate funding carry from long/short across venues</div>
+        <div class="muted">Uses each venue’s own funding window (auto)</div>
       </div>
 
       <div class="grid grid-2" style="margin-top:12px;">
@@ -285,23 +291,13 @@
         </div>
 
         <div>
-          <label>Funding interval (hours)</label>
-          <input id="faIntervalHours" type="number" value="8" min="1" step="1" />
-        </div>
-
-        <div>
           <label>Holding period (hours)</label>
           <input id="faHoldHours" type="number" value="24" min="0" step="1" />
         </div>
 
         <div>
-          <label>Total fees (bps) — both legs combined</label>
-          <input id="faFeesBps" type="number" value="2" step="0.1" />
-        </div>
-
-        <div>
-          <label>Total slippage (bps) — both legs combined</label>
-          <input id="faSlipBps" type="number" value="1" step="0.1" />
+          <label>Total costs (bps) — fees + slippage (both legs combined)</label>
+          <input id="faCostsBps" type="number" value="3" step="0.1" />
         </div>
       </div>
 
@@ -325,21 +321,25 @@
 
       <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
         <button class="btn" id="faRecalc">Recalculate</button>
-        <div class="muted" id="faHint">Uses latest live funding. Assumes funding applies each interval for the holding period.</div>
+        <div class="muted">Funding PnL uses <b>#windows = hold_hours / interval_hours</b> per venue.</div>
       </div>
 
       <div class="grid grid-3" style="margin-top:14px;">
-        <div class="kpi"><div>Hyperliquid funding</div><div class="v" id="faHyperFund">—</div></div>
-        <div class="kpi"><div>Aster funding</div><div class="v" id="faAsterFund">—</div></div>
-        <div class="kpi"><div>Intervals</div><div class="v" id="faIntervals">—</div></div>
+        <div class="kpi"><div>HL funding / interval</div><div class="v" id="faHyperFund">—</div></div>
+        <div class="kpi"><div>HL interval</div><div class="v" id="faHyperInt">—</div></div>
+        <div class="kpi"><div>HL windows</div><div class="v" id="faHyperWin">—</div></div>
 
-        <div class="kpi"><div>Net funding / interval</div><div class="v" id="faNetPerInt">—</div></div>
+        <div class="kpi"><div>Aster funding / interval</div><div class="v" id="faAsterFund">—</div></div>
+        <div class="kpi"><div>Aster interval</div><div class="v" id="faAsterInt">—</div></div>
+        <div class="kpi"><div>Aster windows</div><div class="v" id="faAsterWin">—</div></div>
+
         <div class="kpi"><div>Funding PnL (USD)</div><div class="v" id="faFundingPnl">—</div></div>
         <div class="kpi"><div>Costs (USD)</div><div class="v" id="faCosts">—</div></div>
-
         <div class="kpi"><div>Net result (USD)</div><div class="v" id="faNet">—</div></div>
+
         <div class="kpi"><div>Net result (%)</div><div class="v" id="faNetPct">—</div></div>
         <div class="kpi"><div>Carry direction</div><div class="v" id="faCarry">—</div></div>
+        <div class="kpi"><div>Net carry 365-day</div><div class="v" id="faCarryApr">—</div></div>
       </div>
 
       <div class="muted" style="margin-top:10px;">
@@ -349,13 +349,9 @@
   </div>
 
 <script>
-  // ✅ Your Cloudflare Worker proxy (must end with ?url=)
   const PROXY_BASE = "https://purple-sky-264e.jasper-cooney.workers.dev/?url=";
-
-  // Highlight threshold
   const BPS_HIGHLIGHT = 5;
 
-  // Add/remove symbols here
   const ASSETS = [
     { key:"BTC", hyper:"BTC", aster:"BTCUSDT" },
     { key:"ETH", hyper:"ETH", aster:"ETHUSDT" },
@@ -372,6 +368,7 @@
     { key:"DOT",  hyper:"DOT",  aster:"DOTUSDT"  },
   ];
 
+  // DOM
   const priceRows = document.getElementById("priceRows");
   const fundingRows = document.getElementById("fundingRows");
   const leaderRows = document.getElementById("leaderRows");
@@ -401,30 +398,30 @@
   const faNotional = document.getElementById("faNotional");
   const faLongVenue = document.getElementById("faLongVenue");
   const faShortVenue = document.getElementById("faShortVenue");
-  const faIntervalHours = document.getElementById("faIntervalHours");
   const faHoldHours = document.getElementById("faHoldHours");
-  const faFeesBps = document.getElementById("faFeesBps");
-  const faSlipBps = document.getElementById("faSlipBps");
+  const faCostsBps = document.getElementById("faCostsBps");
   const faSignHyper = document.getElementById("faSignHyper");
   const faSignAster = document.getElementById("faSignAster");
   const faRecalc = document.getElementById("faRecalc");
 
   const faHyperFund = document.getElementById("faHyperFund");
+  const faHyperInt = document.getElementById("faHyperInt");
+  const faHyperWin = document.getElementById("faHyperWin");
   const faAsterFund = document.getElementById("faAsterFund");
-  const faIntervals = document.getElementById("faIntervals");
-  const faNetPerInt = document.getElementById("faNetPerInt");
+  const faAsterInt = document.getElementById("faAsterInt");
+  const faAsterWin = document.getElementById("faAsterWin");
   const faFundingPnl = document.getElementById("faFundingPnl");
   const faCosts = document.getElementById("faCosts");
   const faNet = document.getElementById("faNet");
   const faNetPct = document.getElementById("faNetPct");
   const faCarry = document.getElementById("faCarry");
+  const faCarryApr = document.getElementById("faCarryApr");
 
-  // Latest snapshot used by Leaderboard + Arb
+  // Data stores
   let latestSnapshot = []; // { key, hPx, aPx, diffUsd, bps }
+  let latestFunding = {};  // { [assetKey]: { hyper:{rate, intervalH}, aster:{rate, intervalH} } }
 
-  // Latest funding used by funding arb
-  let latestFunding = {}; // { [assetKey]: { hyper: rateDecimal, aster: rateDecimal } }
-
+  // -------- helpers --------
   function fmtUsd(x) {
     if (x === undefined || x === null || x === "" || Number.isNaN(Number(x))) return "—";
     const n = Number(x);
@@ -457,18 +454,29 @@
     return (n >= 0 ? "" : "−") + Math.abs(n).toFixed(Math.abs(n) < 0.01 ? 4 : 3) + "%";
   }
 
+  function fmtIntervalH(x) {
+    if (!Number.isFinite(x) || x <= 0) return "—";
+    return x.toFixed(x < 10 ? 2 : 1) + "h";
+  }
+
+  function fmtAprFromRate(ratePerWindow, intervalH) {
+    if (!Number.isFinite(ratePerWindow) || !Number.isFinite(intervalH) || intervalH <= 0) return "—";
+    const windowsPerYear = (365 * 24) / intervalH;
+    const apr = ratePerWindow * windowsPerYear * 100;
+    const s = (apr >= 0 ? "" : "−") + Math.abs(apr).toFixed(Math.abs(apr) < 1 ? 3 : 2) + "%";
+    return s;
+  }
+
   function fmtMoney(x) {
     if (!Number.isFinite(x)) return "—";
     const n = Number(x);
-    const s = (n >= 0 ? "" : "−") + "$" + Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
-    return s;
+    return (n >= 0 ? "" : "−") + "$" + Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
   }
 
   function fmtPct(x) {
     if (!Number.isFinite(x)) return "—";
     const n = Number(x);
-    const s = (n >= 0 ? "" : "−") + Math.abs(n).toFixed(Math.abs(n) < 0.01 ? 4 : 3) + "%";
-    return s;
+    return (n >= 0 ? "" : "−") + Math.abs(n).toFixed(Math.abs(n) < 1 ? 3 : 2) + "%";
   }
 
   function setCell(id, text, cls="") {
@@ -493,7 +501,7 @@
     return r.json();
   }
 
-  // ---------- Tabs ----------
+  // -------- tabs --------
   function initTabs() {
     const btns = document.querySelectorAll(".tab-btn");
     const panels = {
@@ -519,7 +527,7 @@
     });
   }
 
-  // ---------- Build tables ----------
+  // -------- build tables --------
   function buildTables() {
     priceRows.innerHTML = ASSETS.map(a => `
       <tr id="pr_${a.key}">
@@ -534,49 +542,52 @@
     fundingRows.innerHTML = ASSETS.map(a => `
       <tr>
         <td class="asset">${a.key}</td>
+
         <td class="right" id="hf_${a.key}">Loading…</td>
+        <td class="right" id="hi_${a.key}">Loading…</td>
+        <td class="right" id="ha_${a.key}">Loading…</td>
+
         <td class="right" id="af_${a.key}">Loading…</td>
+        <td class="right" id="ai_${a.key}">Loading…</td>
+        <td class="right" id="aa_${a.key}">Loading…</td>
       </tr>
     `).join("");
 
     leaderRows.innerHTML = `<tr><td colspan="5" class="muted">Waiting for first price refresh…</td></tr>`;
   }
 
-  // ---------- Arb UI ----------
-  function initArbUI() {
+  // -------- UI init --------
+  function initSelectorsAndInputs() {
     arbAsset.innerHTML = ASSETS.map(a => `<option value="${a.key}">${a.key}</option>`).join("");
     arbAsset.value = "BTC";
 
-    ["change", "input"].forEach(ev => {
+    faAsset.innerHTML = ASSETS.map(a => `<option value="${a.key}">${a.key}</option>`).join("");
+    faAsset.value = "BTC";
+
+    // Arb listeners
+    ["change","input"].forEach(ev => {
       arbAsset.addEventListener(ev, renderArb);
       arbNotional.addEventListener(ev, renderArb);
       arbConvBps.addEventListener(ev, renderArb);
       arbFeesBps.addEventListener(ev, renderArb);
       arbSlipBps.addEventListener(ev, renderArb);
       arbDir.addEventListener(ev, renderArb);
-    });
 
-    arbRecalc.addEventListener("click", renderArb);
-
-    // Funding arb selects
-    faAsset.innerHTML = ASSETS.map(a => `<option value="${a.key}">${a.key}</option>`).join("");
-    faAsset.value = "BTC";
-
-    ["change", "input"].forEach(ev => {
       faAsset.addEventListener(ev, renderFundingArb);
       faNotional.addEventListener(ev, renderFundingArb);
       faLongVenue.addEventListener(ev, renderFundingArb);
       faShortVenue.addEventListener(ev, renderFundingArb);
-      faIntervalHours.addEventListener(ev, renderFundingArb);
       faHoldHours.addEventListener(ev, renderFundingArb);
-      faFeesBps.addEventListener(ev, renderFundingArb);
-      faSlipBps.addEventListener(ev, renderFundingArb);
+      faCostsBps.addEventListener(ev, renderFundingArb);
       faSignHyper.addEventListener(ev, renderFundingArb);
       faSignAster.addEventListener(ev, renderFundingArb);
     });
+
+    arbRecalc.addEventListener("click", renderArb);
     faRecalc.addEventListener("click", renderFundingArb);
   }
 
+  // -------- calculators --------
   function renderArb() {
     const asset = arbAsset.value;
     const row = (latestSnapshot || []).find(x => x.key === asset);
@@ -619,86 +630,96 @@
 
   function renderFundingArb() {
     const asset = faAsset.value;
-    const notional = Number(faNotional.value || 0);
-    const intervalH = Math.max(1, Number(faIntervalHours.value || 0));
     const holdH = Math.max(0, Number(faHoldHours.value || 0));
-    const feesBps = Number(faFeesBps.value || 0);
-    const slipBps = Number(faSlipBps.value || 0);
+    const notional = Number(faNotional.value || 0);
+    const costsBps = Number(faCostsBps.value || 0);
 
-    const intervals = holdH / intervalH;
-    faIntervals.textContent = (Number.isFinite(intervals)) ? intervals.toFixed(2) : "—";
+    const rec = latestFunding[asset] || {};
+    const hyperRate = applySign(rec.hyper?.rate, faSignHyper.value);
+    const asterRate = applySign(rec.aster?.rate, faSignAster.value);
 
-    const f = latestFunding[asset] || {};
-    const hyperRaw = f.hyper;
-    const asterRaw = f.aster;
+    const hyperInt = rec.hyper?.intervalH;
+    const asterInt = rec.aster?.intervalH;
 
-    const hyper = applySign(hyperRaw, faSignHyper.value);
-    const aster = applySign(asterRaw, faSignAster.value);
+    // windows over holding period
+    const hyperWin = (Number.isFinite(hyperInt) && hyperInt > 0) ? (holdH / hyperInt) : null;
+    const asterWin = (Number.isFinite(asterInt) && asterInt > 0) ? (holdH / asterInt) : null;
 
-    faHyperFund.textContent = fmtFunding(hyper);
-    faAsterFund.textContent = fmtFunding(aster);
+    faHyperFund.textContent = fmtFunding(hyperRate);
+    faAsterFund.textContent = fmtFunding(asterRate);
+    faHyperInt.textContent = fmtIntervalH(hyperInt);
+    faAsterInt.textContent = fmtIntervalH(asterInt);
+    faHyperWin.textContent = (hyperWin === null) ? "—" : hyperWin.toFixed(2);
+    faAsterWin.textContent = (asterWin === null) ? "—" : asterWin.toFixed(2);
 
-    // Convention: positive funding => longs pay shorts.
-    // For a position:
-    //   Long earns = -funding (because long pays when funding positive)
-    //   Short earns = +funding (because short receives when funding positive)
-    //
-    // Choose where you're long/short.
-    const longVenue = faLongVenue.value;   // "hyper" or "aster"
-    const shortVenue = faShortVenue.value; // "hyper" or "aster"
+    const longVenue = faLongVenue.value;
+    const shortVenue = faShortVenue.value;
 
-    // Prevent selecting same
     if (longVenue === shortVenue) {
       faCarry.textContent = "Choose different venues";
-      faNetPerInt.textContent = "—";
       faFundingPnl.textContent = "—";
       faCosts.textContent = "—";
       faNet.textContent = "—";
       faNetPct.textContent = "—";
+      faCarryApr.textContent = "—";
       return;
     }
 
-    const rLong = (longVenue === "hyper") ? hyper : aster;
-    const rShort = (shortVenue === "hyper") ? hyper : aster;
+    // Convention assumed: positive funding => longs pay shorts.
+    // Per window:
+    // - long earns = -rate
+    // - short earns = +rate
+    const longRate = (longVenue === "hyper") ? hyperRate : asterRate;
+    const shortRate = (shortVenue === "hyper") ? hyperRate : asterRate;
 
-    // Per-interval net funding yield (decimal):
-    // long contribution = -rLong
-    // short contribution = +rShort
-    const netPerInterval = (Number.isFinite(rLong) && Number.isFinite(rShort)) ? (-rLong + rShort) : null;
+    const longWin = (longVenue === "hyper") ? hyperWin : asterWin;
+    const shortWin = (shortVenue === "hyper") ? hyperWin : asterWin;
 
-    // Display net funding per interval in bps/%:
-    const netPerIntervalBps = (netPerInterval === null) ? null : (netPerInterval * 10000);
-    faNetPerInt.textContent = (netPerIntervalBps === null)
-      ? "—"
-      : ((netPerIntervalBps >= 0 ? "+" : "−") + Math.abs(netPerIntervalBps).toFixed(3) + " bps");
+    if (!Number.isFinite(longRate) || !Number.isFinite(shortRate) || !Number.isFinite(longWin) || !Number.isFinite(shortWin)) {
+      faCarry.textContent = "Waiting for funding + intervals…";
+      faFundingPnl.textContent = "—";
+      faCosts.textContent = "—";
+      faNet.textContent = "—";
+      faNetPct.textContent = "—";
+      faCarryApr.textContent = "—";
+      return;
+    }
 
     // Funding PnL over holding period:
-    // funding PnL ≈ notional * netPerInterval * number_of_intervals
-    const fundingPnl = (netPerInterval === null || !Number.isFinite(intervals))
-      ? null
-      : (notional * netPerInterval * intervals);
+    // long contribution = notional * (-rate) * windows_long
+    // short contribution = notional * (+rate) * windows_short
+    const pnlLong = notional * (-longRate) * longWin;
+    const pnlShort = notional * (+shortRate) * shortWin;
+    const fundingPnl = pnlLong + pnlShort;
 
-    // Costs:
-    const costs = notional * ((feesBps + slipBps) / 10000);
-
-    const net = (fundingPnl === null) ? null : (fundingPnl - costs);
-    const netPct = (net === null || notional === 0) ? null : (100 * net / notional);
+    const costs = notional * (costsBps / 10000);
+    const net = fundingPnl - costs;
+    const netPct = (notional === 0) ? null : (100 * net / notional);
 
     faFundingPnl.textContent = fmtMoney(fundingPnl);
     faCosts.textContent = fmtMoney(costs);
     faNet.textContent = fmtMoney(net);
-    faNet.className = "v " + ((net ?? 0) >= 0 ? "pos" : "neg");
+    faNet.className = "v " + (net >= 0 ? "pos" : "neg");
     faNetPct.textContent = fmtPct(netPct);
     faNetPct.className = "v " + ((netPct ?? 0) >= 0 ? "pos" : "neg");
 
-    // Carry direction label
-    if (netPerInterval === null) faCarry.textContent = "—";
-    else if (netPerInterval > 0) faCarry.textContent = "Positive carry";
-    else if (netPerInterval < 0) faCarry.textContent = "Negative carry";
+    // Carry direction label (net per hour sign is rough, but useful)
+    if (net > 0) faCarry.textContent = "Positive carry";
+    else if (net < 0) faCarry.textContent = "Negative carry";
     else faCarry.textContent = "Flat carry";
+
+    // “Carry APR” approximation:
+    // Convert each leg to hourly, then net hourly × 24×365
+    const longInt = (longVenue === "hyper") ? hyperInt : asterInt;
+    const shortInt = (shortVenue === "hyper") ? hyperInt : asterInt;
+    const longHourly = (-longRate) / longInt;
+    const shortHourly = (+shortRate) / shortInt;
+    const netApr = (longHourly + shortHourly) * 24 * 365 * 100;
+    faCarryApr.textContent = (netApr >= 0 ? "" : "−") + Math.abs(netApr).toFixed(Math.abs(netApr) < 1 ? 3 : 2) + "%";
+    faCarryApr.className = "v " + (netApr >= 0 ? "pos" : "neg");
   }
 
-  // ---------- Hyperliquid (mark + funding) ----------
+  // -------- API loaders --------
   async function loadHyperliquidCtx() {
     const j = await fetchJson("https://api.hyperliquid.xyz/info", {
       method: "POST",
@@ -715,22 +736,51 @@
     return out;
   }
 
-  // ---------- Aster (prices + funding) ----------
   async function loadAsterPricesAll() {
     const j = await fetchJson("https://fapi.asterdex.com/fapi/v1/ticker/price");
-    const out = new Map(); // symbol -> price
+    const out = new Map();
     if (Array.isArray(j)) j.forEach(x => out.set(x.symbol, x.price));
     return out;
   }
 
   async function loadAsterPremiumAll() {
+    // We keep the whole object per symbol so we can infer interval if fields exist.
     const j = await fetchJson("https://fapi.asterdex.com/fapi/v1/premiumIndex");
-    const out = new Map(); // symbol -> lastFundingRate
-    if (Array.isArray(j)) j.forEach(x => out.set(x.symbol, x.lastFundingRate));
+    const out = new Map(); // symbol -> obj
+    if (Array.isArray(j)) j.forEach(x => out.set(x.symbol, x));
     return out;
   }
 
-  // ---------- Leaderboard ----------
+  function inferIntervalHoursFromPremium(obj) {
+    if (!obj || typeof obj !== "object") return null;
+
+    // Common field names in futures APIs (Binance-like):
+    // - lastFundingTime, nextFundingTime are ms timestamps
+    // Some APIs also have fundingInterval (ms or seconds) or intervalHours.
+    const last = Number(obj.lastFundingTime);
+    const next = Number(obj.nextFundingTime);
+    if (Number.isFinite(last) && Number.isFinite(next) && next > last) {
+      return (next - last) / 3600000;
+    }
+
+    const fi = Number(obj.fundingInterval);
+    if (Number.isFinite(fi) && fi > 0) {
+      // If it looks like milliseconds
+      if (fi > 100000) return fi / 3600000;
+      // If it looks like seconds
+      if (fi > 60) return fi / 3600;
+      // If it looks like hours
+      return fi;
+    }
+
+    const ih = Number(obj.intervalHours);
+    if (Number.isFinite(ih) && ih > 0) return ih;
+
+    // fallback
+    return 8;
+  }
+
+  // -------- leaderboard --------
   function renderLeaderboard() {
     const rows = (latestSnapshot || [])
       .filter(x => Number.isFinite(x.bps))
@@ -753,7 +803,7 @@
     }).join("") || `<tr><td colspan="5" class="muted">No data yet…</td></tr>`;
   }
 
-  // ---------- Refresh loops ----------
+  // -------- refresh loops --------
   async function refreshPrices() {
     const started = Date.now();
     priceStatus.textContent = "Updating…";
@@ -811,25 +861,38 @@
     fundingStatus.textContent = "Updating…";
     fundingStatus.className = "muted";
 
-    const [hlRes, afRes] = await Promise.allSettled([
+    const [hlRes, asterPremRes] = await Promise.allSettled([
       loadHyperliquidCtx(),
       loadAsterPremiumAll()
     ]);
 
     const hl = (hlRes.status === "fulfilled") ? hlRes.value : new Map();
-    const af = (afRes.status === "fulfilled") ? afRes.value : new Map();
+    const asterPrem = (asterPremRes.status === "fulfilled") ? asterPremRes.value : new Map();
 
-    // Build funding store by asset key
+    // Hyperliquid: treat as hourly windows
+    const HL_INTERVAL_H = 1;
+
     const lf = {};
 
     for (const a of ASSETS) {
-      const hFund = hl.get(a.hyper)?.funding;
-      const aFund = af.get(a.aster);
+      const hRate = hl.get(a.hyper)?.funding;
+      const aObj = asterPrem.get(a.aster);
+      const aRate = aObj?.lastFundingRate ?? aObj?.fundingRate ?? aObj?.funding ?? null;
+      const aIntH = inferIntervalHoursFromPremium(aObj);
 
-      setCell(`hf_${a.key}`, fmtFunding(hFund), (hlRes.status === "rejected" ? "err" : ""));
-      setCell(`af_${a.key}`, fmtFunding(aFund), (afRes.status === "rejected" ? "err" : ""));
+      // Fill funding table UI
+      setCell(`hf_${a.key}`, fmtFunding(hRate), (hlRes.status === "rejected" ? "err" : ""));
+      setCell(`hi_${a.key}`, fmtIntervalH(HL_INTERVAL_H));
+      setCell(`ha_${a.key}`, fmtAprFromRate(Number(hRate), HL_INTERVAL_H));
 
-      lf[a.key] = { hyper: (hFund === undefined ? null : Number(hFund)), aster: (aFund === undefined ? null : Number(aFund)) };
+      setCell(`af_${a.key}`, fmtFunding(aRate), (asterPremRes.status === "rejected" ? "err" : ""));
+      setCell(`ai_${a.key}`, fmtIntervalH(aIntH));
+      setCell(`aa_${a.key}`, fmtAprFromRate(Number(aRate), aIntH));
+
+      lf[a.key] = {
+        hyper: { rate: Number(hRate), intervalH: HL_INTERVAL_H },
+        aster: { rate: Number(aRate), intervalH: aIntH }
+      };
     }
 
     latestFunding = lf;
@@ -840,11 +903,11 @@
     fundingStatus.className = "muted ok";
   }
 
-  // ---------- Init ----------
+  // -------- init --------
   function init() {
     initTabs();
     buildTables();
-    initArbUI();
+    initSelectorsAndInputs();
 
     refreshPrices();
     refreshFunding();
