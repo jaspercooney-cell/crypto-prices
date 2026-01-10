@@ -1,0 +1,57 @@
+index.html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Crypto Perp Prices</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      text-align: center;
+      padding-top: 40px;
+    }
+    .box {
+      background: #111827;
+      padding: 20px;
+      margin: 20px auto;
+      width: 300px;
+      border-radius: 10px;
+    }
+    .price {
+      font-size: 28px;
+      margin-top: 10px;
+    }
+    .small {
+      color: #9ca3af;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Live Crypto Perp Prices</h1>
+
+<div class="box">
+  <h2>BTCUSDT (OKX)</h2>
+  <div class="price" id="btc">Loading...</div>
+  <div class="small" id="time"></div>
+</div>
+
+<script>
+async function loadPrice() {
+  const res = await fetch("https://www.okx.com/api/v5/market/ticker?instId=BTC-USDT-SWAP");
+  const data = await res.json();
+  document.getElementById("btc").innerText =
+    "$" + Number(data.data[0].last).toLocaleString();
+  document.getElementById("time").innerText =
+    "Updated: " + new Date().toLocaleTimeString();
+}
+
+loadPrice();
+setInterval(loadPrice, 2000);
+</script>
+
+</body>
+</html>
