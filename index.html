@@ -1,0 +1,177 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Perp Price Compare</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#0f172a; color:#e5e7eb; padding:24px; }
+    h1 { margin: 0 0 8px 0; }
+    .sub { color:#9ca3af; margin-bottom:16px; }
+    .card { background:#111827; border-radius:12px; padding:16px; max-width: 980px; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { padding: 12px 10px; border-bottom: 1px solid #1f2937; text-align: left; }
+    th { color:#cbd5e1; font-weight: 600; }
+    .asset { font-weight: 700; }
+    .muted { color:#9ca3af; font-size:12px; margin-top:10px; }
+    .pill { display:inline-block; padding:3px 8px; border-radius:999px; background:#0b1220; border:1px solid #1f2937; font-size:12px; color:#cbd5e1; }
+    .err { color:#fca5a5; }
+    .ok { color:#86efac; }
+    .right { text-align:right; }
+  </style>
+</head>
+<body>
+  <h1>Crypto Perp Pricing (Live)</h1>
+  <div class="sub">
+    Side-by-side comparison: <span class="pill">Kraken Futures</span> <span class="pill">OKX Swap</span> <span class="pill">Binance USDⓈ-M</span>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Asset</th>
+          <th class="right">Kraken (USD)</th>
+          <th class="right">OKX (USDT)</th>
+          <th class="right">Binance (USDT)</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+
+    <div class="muted" id="status">Loading…</div>
+    <div class="muted">
+      Notes: OKX/Binance are USDT perps (≈ USD). Kraken uses Futures tickers (USD indices/perps). Some symbols may be unavailable on an exchange.
+    </div>
+  </div>
+
+<script>
+/**
+ * If you hit CORS issues, set PROXY_BASE to a proxy URL later (instructions below).
+ * Leave as "" to call exchanges directly.
+ */
+const PROXY_BASE = ""; // e.g. "https://your-proxy.example.com/?url="
+
+const ASSETS = [
+  { key:"BTC", okx:"BTC-USDT-SWAP", binance:"BTCUSDT", krakenFut:"PI_XBTUSD" },
+  { key:"ETH", okx:"ETH-USDT-SWAP", binance:"ETHUSDT", krakenFut:"PI_ETHUSD" },
+  { key:"XRP", okx:"XRP-USDT-SWAP", binance:"XRPUSDT", krakenFut:"PI_XRPUSD" },
+  { key:"SOL", okx:"SOL-USDT-SWAP", binance:"SOLUSDT", krakenFut:"PI_SOLUSD" },
+  { key:"ZEC", okx:"ZEC-USDT-SWAP", binance:"ZECUSDT", krakenFut:"PI_ZECUSD" },
+];
+
+const elRows = document.getElementById("rows");
+const elStatus = document.getElementById("status");
+
+function fmtPrice(x) {
+  if (x === null || x === undefined || x === "" || Number.isNaN(Number(x))) return "—";
+  const n = Number(x);
+  // simple formatting
+  return n >= 1 ? "$" + n.toLocaleString(undefined, { maximumFractionDigits: 2 })
+                : "$" + n.toLocaleString(undefined, { maximumFractionDigits: 6 });
+}
+
+function setCell(id, text, isError=false) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text;
+  el.className = "right " + (isError ? "err" : "");
+}
+
+function buildTable() {
+  elRows.innerHTML = ASSETS.map(a => `
+    <tr>
+      <td class="asset">${a.key}</td>
+      <td class="right" id="k_${a.key}">Loading…</td>
+      <td class="right" id="o_${a.key}">Loading…</td>
+      <td class="right" id="b_${a.key}">Loading…</td>
+    </tr>
+  `).join("");
+}
+
+async function fetchJson(url) {
+  const finalUrl = PROXY_BASE ? (PROXY_BASE + encodeURIComponent(url)) : url;
+  const r = await fetch(finalUrl, { cache: "no-store" });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  return await r.json();
+}
+
+// OKX: REST v5 ticker
+async function loadOKX(asset) {
+  const url = `https://www.okx.com/api/v5/market/ticker?instId=${asset.okx}`;
+  const j = await fetchJson(url);
+  const last = j?.data?.[0]?.last;
+  return last ?? null;
+}
+
+// Binance USDⓈ-M: symbol price ticker v2
+async function loadBinance(asset) {
+  const url = `https://fapi.binance.com/fapi/v2/ticker/price?symbol=${asset.binance}`;
+  const j = await fetchJson(url);
+  return j?.price ?? null;
+}
+
+// Kraken Futures: fetch all tickers once, then pick symbol
+async function loadKrakenFuturesAll() {
+  const url = `https://futures.kraken.com/derivatives/api/v3/tickers`;
+  const j = await fetchJson(url);
+  // response shape has "tickers" array (per docs); keep it flexible
+  const list = j?.tickers || j?.result || j || [];
+  const map = new Map();
+  if (Array.isArray(list)) {
+    for (const t of list) {
+      if (t?.symbol) map.set(t.symbol, t);
+    }
+  }
+  return map;
+}
+
+async function refresh() {
+  const started = Date.now();
+  elStatus.textContent = "Updating…";
+  elStatus.className = "muted";
+
+  try {
+    // Kraken tickers in one call
+    const krakenMap = await loadKrakenFuturesAll();
+
+    // Parallel OKX + Binance per asset
+    await Promise.all(ASSETS.map(async a => {
+      // Kraken Futures
+      const kt = krakenMap.get(a.krakenFut);
+      // different fields exist; try a few common ones
+      const kPrice = kt?.last || kt?.markPrice || kt?.indexPrice || kt?.price || null;
+      setCell(`k_${a.key}`, fmtPrice(kPrice));
+
+      // OKX
+      try {
+        const okxLast = await loadOKX(a);
+        setCell(`o_${a.key}`, fmtPrice(okxLast));
+      } catch (e) {
+        setCell(`o_${a.key}`, "CORS/Err", true);
+      }
+
+      // Binance
+      try {
+        const bPrice = await loadBinance(a);
+        setCell(`b_${a.key}`, fmtPrice(bPrice));
+      } catch (e) {
+        setCell(`b_${a.key}`, "CORS/Err", true);
+      }
+    }));
+
+    const ms = Date.now() - started;
+    elStatus.textContent = `Updated: ${new Date().toLocaleTimeString()} (in ${ms} ms)`;
+    elStatus.className = "muted ok";
+  } catch (e) {
+    elStatus.textContent = `Error updating (likely CORS). See the proxy fix below.`;
+    elStatus.className = "muted err";
+  }
+}
+
+buildTable();
+refresh();
+setInterval(refresh, 5000); // every 5 seconds
+</script>
+</body>
+</html>
