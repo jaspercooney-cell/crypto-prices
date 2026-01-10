@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Live Prices — Hyperliquid / Aster</title>
+  <title>Live Prices + Funding — Hyperliquid / Aster</title>
 
   <style>
     body { font-family: Arial, sans-serif; background:#0f172a; color:#e5e7eb; padding:24px; }
     h1 { margin: 0 0 8px 0; }
     .sub { color:#9ca3af; margin-bottom:16px; }
-    .card { background:#111827; border-radius:12px; padding:16px; max-width: 800px; }
+    .card { background:#111827; border-radius:12px; padding:16px; max-width: 980px; }
     table { width:100%; border-collapse: collapse; }
     th, td { padding: 12px 10px; border-bottom: 1px solid #1f2937; }
     th { color:#cbd5e1; font-weight: 600; text-align:left; }
@@ -21,16 +21,15 @@
       background:#0b1220; border:1px solid #1f2937;
       font-size:12px; color:#cbd5e1; margin-right:6px;
     }
-    .err { color:#fca5a5; }
     .ok { color:#86efac; }
   </style>
 </head>
 
 <body>
-  <h1>Live Prices</h1>
+  <h1>Live Prices + Funding</h1>
   <div class="sub">
-    <span class="pill">Hyperliquid (Mark)</span>
-    <span class="pill">Aster (Last)</span>
+    <span class="pill">Hyperliquid (Mark + Funding)</span>
+    <span class="pill">Aster (Last + Funding)</span>
   </div>
 
   <div class="card">
@@ -38,8 +37,10 @@
       <thead>
         <tr>
           <th>Asset</th>
-          <th class="right">Hyperliquid</th>
-          <th class="right">Aster</th>
+          <th class="right">Hyperliquid Price</th>
+          <th class="right">Hyperliquid Funding</th>
+          <th class="right">Aster Price</th>
+          <th class="right">Aster Funding</th>
         </tr>
       </thead>
       <tbody id="rows"></tbody>
@@ -47,9 +48,143 @@
 
     <div class="muted" id="status">Loading…</div>
     <div class="muted">
-      Hyperliquid shown as mark price · Aster shown as last trade
+      Funding shown as <b>rate</b> (decimal → %) from each venue’s public endpoints.
     </div>
   </div>
 
 <script>
-  // Cloudflare Worker pr
+  // Cloudflare Worker proxy (must end with ?url=)
+  const PROXY_BASE = "https://purple-sky-264e.jasper-cooney.workers.dev/?url=";
+
+  // Add/remove symbols here.
+  // hyper: Hyperliquid coin name
+  // aster: Aster futures symbol
+  const ASSETS = [
+    { key:"BTC", hyper:"BTC", aster:"BTCUSDT" },
+    { key:"ETH", hyper:"ETH", aster:"ETHUSDT" },
+    { key:"SOL", hyper:"SOL", aster:"SOLUSDT" },
+    { key:"XRP", hyper:"XRP", aster:"XRPUSDT" },
+    { key:"ZEC", hyper:"ZEC", aster:"ZECUSDT" },
+
+    { key:"DOGE", hyper:"DOGE", aster:"DOGEUSDT" },
+    { key:"ADA",  hyper:"ADA",  aster:"ADAUSDT"  },
+    { key:"LINK", hyper:"LINK", aster:"LINKUSDT" },
+    { key:"AVAX", hyper:"AVAX", aster:"AVAXUSDT" },
+    { key:"LTC",  hyper:"LTC",  aster:"LTCUSDT"  },
+    { key:"BCH",  hyper:"BCH",  aster:"BCHUSDT"  },
+    { key:"DOT",  hyper:"DOT",  aster:"DOTUSDT"  },
+  ];
+
+  const elRows = document.getElementById("rows");
+  const elStatus = document.getElementById("status");
+
+  function fmtUsd(x) {
+    if (x === undefined || x === null || x === "" || Number.isNaN(Number(x))) return "—";
+    const n = Number(x);
+    return n >= 1
+      ? "$" + n.toLocaleString(undefined,{maximumFractionDigits:2})
+      : "$" + n.toLocaleString(undefined,{maximumFractionDigits:6});
+  }
+
+  function fmtFunding(x) {
+    if (x === undefined || x === null || x === "" || Number.isNaN(Number(x))) return "—";
+    const n = Number(x) * 100;
+    // show small rates nicely
+    return (n >= 0 ? "" : "−") + Math.abs(n).toFixed(n < 0.01 ? 4 : 3) + "%";
+  }
+
+  function buildTable() {
+    elRows.innerHTML = ASSETS.map(a => `
+      <tr>
+        <td class="asset">${a.key}</td>
+        <td class="right" id="hp_${a.key}">Loading…</td>
+        <td class="right" id="hf_${a.key}">Loading…</td>
+        <td class="right" id="ap_${a.key}">Loading…</td>
+        <td class="right" id="af_${a.key}">Loading…</td>
+      </tr>
+    `).join("");
+  }
+
+  async function fetchJson(url, options) {
+    const r = await fetch(PROXY_BASE + encodeURIComponent(url), { cache:"no-store", ...(options||{}) });
+    if (!r.ok) throw new Error(String(r.status));
+    return r.json();
+  }
+
+  // ---------- Hyperliquid (mark + funding) ----------
+  async function loadHyperliquidCtx() {
+    // POST https://api.hyperliquid.xyz/info  { type:"metaAndAssetCtxs" }
+    const j = await fetchJson(
+      "https://api.hyperliquid.xyz/info",
+      {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ type:"metaAndAssetCtxs" })
+      }
+    );
+
+    const meta = j[0], ctxs = j[1];
+    const out = new Map(); // coin -> { markPx, funding }
+    meta.universe.forEach((u,i) => {
+      const c = ctxs[i] || {};
+      out.set(u.name, { markPx: c.markPx, funding: c.funding });
+    });
+    return out;
+  }
+
+  // ---------- Aster (last price + funding via premiumIndex) ----------
+  async function loadAsterPrices() {
+    // GET /fapi/v1/ticker/price without symbol returns array
+    const j = await fetchJson("https://fapi.asterdex.com/fapi/v1/ticker/price");
+    const out = new Map(); // symbol -> last price
+    if (Array.isArray(j)) j.forEach(x => out.set(x.symbol, x.price));
+    else if (j && j.symbol) out.set(j.symbol, j.price);
+    return out;
+  }
+
+  async function loadAsterPremiumIndex() {
+    // GET /fapi/v1/premiumIndex without symbol returns array
+    const j = await fetchJson("https://fapi.asterdex.com/fapi/v1/premiumIndex");
+    const out = new Map(); // symbol -> { lastFundingRate, markPrice }
+    const arr = Array.isArray(j) ? j : [j];
+    arr.forEach(x => {
+      if (x && x.symbol) out.set(x.symbol, { lastFundingRate: x.lastFundingRate, markPrice: x.markPrice });
+    });
+    return out;
+  }
+
+  async function refresh() {
+    elStatus.textContent = "Updating…";
+
+    // Fetch all venue data in parallel
+    const [hl, asterPrices, asterPrem] = await Promise.allSettled([
+      loadHyperliquidCtx(),
+      loadAsterPrices(),
+      loadAsterPremiumIndex(),
+    ]);
+
+    const hlMap = (hl.status === "fulfilled") ? hl.value : new Map();
+    const apMap = (asterPrices.status === "fulfilled") ? asterPrices.value : new Map();
+    const aiMap = (asterPrem.status === "fulfilled") ? asterPrem.value : new Map();
+
+    ASSETS.forEach(a => {
+      // Hyperliquid
+      const h = hlMap.get(a.hyper);
+      document.getElementById(`hp_${a.key}`).textContent = fmtUsd(h?.markPx);
+      document.getElementById(`hf_${a.key}`).textContent = fmtFunding(h?.funding);
+
+      // Aster
+      document.getElementById(`ap_${a.key}`).textContent = fmtUsd(apMap.get(a.aster));
+      document.getElementById(`af_${a.key}`).textContent = fmtFunding(aiMap.get(a.aster)?.lastFundingRate);
+    });
+
+    elStatus.textContent = "Updated: " + new Date().toLocaleTimeString();
+    elStatus.className = "muted ok";
+  }
+
+  buildTable();
+  refresh();
+  setInterval(refresh, 5000);
+</script>
+</body>
+</html>
