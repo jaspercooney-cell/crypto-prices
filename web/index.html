@@ -140,14 +140,13 @@
     </div>
   </div>
 
- <div class="tabs">
-  <button class="tab-btn active" data-tab="prices">Prices</button>
-  <button class="tab-btn" data-tab="funding">Funding</button>
-  <button class="tab-btn" data-tab="arb">Arb PnL Estimator</button>
-  <button class="tab-btn" data-tab="fundarb">Funding rate arb calculator</button>
-  <button class="tab-btn" data-tab="daily">Daily Insights</button>
-</div>
-
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="prices">Prices</button>
+    <button class="tab-btn" data-tab="funding">Funding</button>
+    <button class="tab-btn" data-tab="arb">Arb PnL Estimator</button>
+    <button class="tab-btn" data-tab="fundarb">Funding rate arb calculator</button>
+    <button class="tab-btn" data-tab="daily">Daily Insights</button>
+  </div>
 
   <!-- PRICES TAB -->
   <div id="tab-prices" class="tab-panel active">
@@ -297,6 +296,35 @@
     </div>
   </div>
 
+  <!-- DAILY INSIGHTS TAB -->
+  <div id="tab-daily" class="tab-panel">
+    <div class="card">
+      <div class="dash-title">
+        <h2>Daily Insights (last 24h)</h2>
+        <div class="muted" id="dailyStatus">Collecting data…</div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Insight</th>
+            <th>Coin</th>
+            <th>Action</th>
+            <th class="right">Metric</th>
+            <th class="right">Observed</th>
+          </tr>
+        </thead>
+        <tbody id="dailyRows">
+          <tr><td colspan="5" class="muted">Waiting for data…</td></tr>
+        </tbody>
+      </table>
+
+      <div class="muted" style="margin-top:10px;">
+        Note: “best in last 24h” is based on data observed in your browser while the site is running (stored in localStorage).
+      </div>
+    </div>
+  </div>
+
 <script>
   // === set this to your worker ===
   const PROXY_BASE = "https://purple-sky-264e.jasper-cooney.workers.dev/?url=";
@@ -308,6 +336,10 @@
   // 24h high spread across SELECTED exchanges (minute buckets)
   const HIGH_WINDOW_MINUTES = 24 * 60;
   const HIGH_STORE_KEY = "perpinsights_24h_high_spread_bps_v2";
+
+  // Daily Insights store (24h)
+  const DAILY_STORE_KEY = "perpinsights_daily_insights_v1";
+  const DAILY_WINDOW_MINUTES = 24 * 60;
 
   // Same coins you currently had
   const COINS = ["BTC","ETH","SOL","XRP","ZEC","DOGE","ADA","LINK","AVAX","LTC","BCH","DOT"];
@@ -371,6 +403,9 @@
   const faCosts = document.getElementById("faCosts");
   const faNet = document.getElementById("faNet");
 
+  const dailyStatus = document.getElementById("dailyStatus");
+  const dailyRows = document.getElementById("dailyRows");
+
   // ===== Tabs =====
   function initTabs() {
     const btns = document.querySelectorAll(".tab-btn");
@@ -379,6 +414,7 @@
       funding: document.getElementById("tab-funding"),
       arb: document.getElementById("tab-arb"),
       fundarb: document.getElementById("tab-fundarb"),
+      daily: document.getElementById("tab-daily"),
     };
     btns.forEach(b => {
       b.addEventListener("click", () => {
@@ -386,9 +422,9 @@
         b.classList.add("active");
         Object.values(panels).forEach(p => p.classList.remove("active"));
         panels[b.dataset.tab].classList.add("active");
-        // refresh calculator dropdowns on tab open
         if (b.dataset.tab === "arb") renderArb();
         if (b.dataset.tab === "fundarb") renderFundingArb();
+        if (b.dataset.tab === "daily") renderDailyInsights();
       });
     });
   }
@@ -461,7 +497,6 @@
   document.getElementById("cNone").onclick = () => setAllCoins(false);
 
   document.getElementById("applyFilters").onclick = () => {
-    // Basic guardrails
     if (selectedEx.size < 1) { alert("Select at least 1 exchange"); return; }
     if (selectedCoins.size < 1) { alert("Select at least 1 coin"); return; }
 
@@ -469,7 +504,6 @@
     filterStatus.textContent = `Applied: ${selectedEx.size} exchanges, ${selectedCoins.size} coins.`;
     buildTables();
     refreshAllDropdowns();
-    // refresh immediately
     refreshPrices();
     refreshFunding();
   };
@@ -485,6 +519,10 @@
   // ===== Helpers =====
   function nowMinuteEpoch() { return Math.floor(Date.now() / 60000); }
 
+  function exName(exKey) {
+    return (EXCHANGES.find(e => e.key === exKey)?.name) || exKey;
+  }
+
   function fmtUsd(x) {
     if (x === undefined || x === null || x === "" || Number.isNaN(Number(x))) return "—";
     const n = Number(x);
@@ -492,15 +530,15 @@
       ? "$" + n.toLocaleString(undefined, { maximumFractionDigits: 2 })
       : "$" + n.toLocaleString(undefined, { maximumFractionDigits: 6 });
   }
-  function fmtBpsSigned(x) {
-    if (!Number.isFinite(x)) return { text:"—", cls:"" };
-    const abs = Math.abs(x);
-    return { text: (x>=0?"+":"−") + abs.toFixed(abs < 10 ? 2 : 1) + " bps", cls: x>0?"pos":(x<0?"neg":"") };
-  }
   function fmtBpsAbs(x) {
     if (!Number.isFinite(x)) return "—";
     const abs = Math.abs(x);
     return abs.toFixed(abs < 10 ? 2 : 1) + " bps";
+  }
+  function fmtBpsSigned(x) {
+    if (!Number.isFinite(x)) return { text:"—", cls:"" };
+    const abs = Math.abs(x);
+    return { text: (x>=0?"+":"−") + abs.toFixed(abs < 10 ? 2 : 1) + " bps", cls: x>0?"pos":(x<0?"neg":"") };
   }
   function fmtFunding(rate) {
     if (!Number.isFinite(rate)) return "—";
@@ -528,8 +566,8 @@
     return r.json();
   }
 
-  // ===== Local storage for 24h high spread (per coin, minute bucket) =====
-  let highStore = {}; // { [coin]: [{m, spreadBpsAbs}] }
+  // ===== Local storage: 24h High spread (per coin, minute bucket) =====
+  let highStore = {}; // { [coin]: [{m, s}] } s=spreadAbsBps
 
   function loadHighStore() {
     try { highStore = JSON.parse(localStorage.getItem(HIGH_STORE_KEY) || "{}"); } catch { highStore = {}; }
@@ -567,6 +605,164 @@
     return best;
   }
 
+  // ===== Daily Insights store =====
+  // dailyStore = {
+  //   spread: { [coin]: [{m, bps, buyEx, sellEx}] },
+  //   funding:{ [coin]: [{m, apr, longEx, shortEx}] }
+  // }
+  let dailyStore = { spread: {}, funding: {} };
+
+  function loadDailyStore() {
+    try {
+      dailyStore = JSON.parse(localStorage.getItem(DAILY_STORE_KEY) || '{"spread":{},"funding":{}}');
+      if (!dailyStore.spread) dailyStore.spread = {};
+      if (!dailyStore.funding) dailyStore.funding = {};
+    } catch {
+      dailyStore = { spread: {}, funding: {} };
+    }
+  }
+  function saveDailyStore() {
+    try { localStorage.setItem(DAILY_STORE_KEY, JSON.stringify(dailyStore)); } catch {}
+  }
+  function pruneDailyStore() {
+    const cutoff = nowMinuteEpoch() - DAILY_WINDOW_MINUTES;
+
+    for (const coin of Object.keys(dailyStore.spread || {})) {
+      const arr = Array.isArray(dailyStore.spread[coin]) ? dailyStore.spread[coin] : [];
+      dailyStore.spread[coin] = arr.filter(x => x && Number.isFinite(x.m) && x.m >= cutoff && Number.isFinite(x.bps));
+      if (!dailyStore.spread[coin].length) delete dailyStore.spread[coin];
+    }
+
+    for (const coin of Object.keys(dailyStore.funding || {})) {
+      const arr = Array.isArray(dailyStore.funding[coin]) ? dailyStore.funding[coin] : [];
+      dailyStore.funding[coin] = arr.filter(x => x && Number.isFinite(x.m) && x.m >= cutoff && Number.isFinite(x.apr));
+      if (!dailyStore.funding[coin].length) delete dailyStore.funding[coin];
+    }
+  }
+
+  function updateDailySpread(coin, spreadBpsAbs, buyEx, sellEx) {
+    if (!Number.isFinite(spreadBpsAbs)) return;
+    const m = nowMinuteEpoch();
+    if (!Array.isArray(dailyStore.spread[coin])) dailyStore.spread[coin] = [];
+    const arr = dailyStore.spread[coin];
+    const last = arr.length ? arr[arr.length - 1] : null;
+
+    if (last && last.m === m) {
+      if (spreadBpsAbs > last.bps) {
+        last.bps = spreadBpsAbs;
+        last.buyEx = buyEx;
+        last.sellEx = sellEx;
+      }
+    } else {
+      arr.push({ m, bps: spreadBpsAbs, buyEx, sellEx });
+    }
+
+    const cutoff = m - DAILY_WINDOW_MINUTES;
+    while (arr.length && arr[0].m < cutoff) arr.shift();
+  }
+
+  function updateDailyFunding(coin, netAprPct, longEx, shortEx) {
+    if (!Number.isFinite(netAprPct)) return;
+    const m = nowMinuteEpoch();
+    if (!Array.isArray(dailyStore.funding[coin])) dailyStore.funding[coin] = [];
+    const arr = dailyStore.funding[coin];
+    const last = arr.length ? arr[arr.length - 1] : null;
+
+    if (last && last.m === m) {
+      if (netAprPct > last.apr) {
+        last.apr = netAprPct;
+        last.longEx = longEx;
+        last.shortEx = shortEx;
+      }
+    } else {
+      arr.push({ m, apr: netAprPct, longEx, shortEx });
+    }
+
+    const cutoff = m - DAILY_WINDOW_MINUTES;
+    while (arr.length && arr[0].m < cutoff) arr.shift();
+  }
+
+  function bestSpread24h() {
+    pruneDailyStore();
+    let best = null; // {coin, m, bps, buyEx, sellEx}
+    for (const [coin, arr] of Object.entries(dailyStore.spread || {})) {
+      for (const x of (arr || [])) {
+        if (!x || !Number.isFinite(x.bps)) continue;
+        if (!best || x.bps > best.bps) best = { coin, ...x };
+      }
+    }
+    return best;
+  }
+
+  function bestFunding24h() {
+    pruneDailyStore();
+    let best = null; // {coin, m, apr, longEx, shortEx}
+    for (const [coin, arr] of Object.entries(dailyStore.funding || {})) {
+      for (const x of (arr || [])) {
+        if (!x || !Number.isFinite(x.apr)) continue;
+        if (!best || x.apr > best.apr) best = { coin, ...x };
+      }
+    }
+    return best;
+  }
+
+  function renderDailyInsights() {
+    if (!dailyRows || !dailyStatus) return;
+
+    const s = bestSpread24h();
+    const f = bestFunding24h();
+
+    const rows = [];
+
+    if (s) {
+      rows.push(`
+        <tr>
+          <td><b>Spread Convergence Arb</b></td>
+          <td>${s.coin}</td>
+          <td>Buy <b>${exName(s.buyEx)}</b> / Sell <b>${exName(s.sellEx)}</b></td>
+          <td class="right">${fmtBpsAbs(s.bps)}</td>
+          <td class="right">${new Date(s.m * 60000).toLocaleString()}</td>
+        </tr>
+      `);
+    } else {
+      rows.push(`
+        <tr>
+          <td><b>Spread Convergence Arb</b></td>
+          <td>—</td>
+          <td class="muted">Waiting for price history…</td>
+          <td class="right">—</td>
+          <td class="right">—</td>
+        </tr>
+      `);
+    }
+
+    if (f) {
+      const pct = f.apr;
+      rows.push(`
+        <tr>
+          <td><b>Funding Rate Arb</b></td>
+          <td>${f.coin}</td>
+          <td>Long <b>${exName(f.longEx)}</b> / Short <b>${exName(f.shortEx)}</b></td>
+          <td class="right">${(pct).toFixed(Math.abs(pct) < 1 ? 3 : 2)}%</td>
+          <td class="right">${new Date(f.m * 60000).toLocaleString()}</td>
+        </tr>
+      `);
+    } else {
+      rows.push(`
+        <tr>
+          <td><b>Funding Rate Arb</b></td>
+          <td>—</td>
+          <td class="muted">Waiting for funding history…</td>
+          <td class="right">—</td>
+          <td class="right">—</td>
+        </tr>
+      `);
+    }
+
+    dailyRows.innerHTML = rows.join("");
+    dailyStatus.textContent = `Updated: ${new Date().toLocaleTimeString()} (last 24h window)`;
+  }
+
   // ===== Data caches =====
   // prices[exchange][coin] = priceNumber
   const prices = {};
@@ -575,7 +771,6 @@
 
   // ===== Fetchers =====
   async function loadHyperliquid() {
-    // metaAndAssetCtxs returns markPx + funding
     const j = await fetchJson("https://api.hyperliquid.xyz/info", {
       method:"POST",
       headers:{ "Content-Type":"application/json" },
@@ -624,7 +819,7 @@
       const last = Number(obj?.lastFundingTime);
       const next = Number(obj?.nextFundingTime);
       if (Number.isFinite(last) && Number.isFinite(next) && next > last) intervalH = (next-last)/3600000;
-      if (!Number.isFinite(intervalH) || intervalH<=0) intervalH = 8; // safe fallback
+      if (!Number.isFinite(intervalH) || intervalH<=0) intervalH = 8;
 
       if (!funding.aster) funding.aster = {};
       if (Number.isFinite(r)) funding.aster[coin] = { rate: r, intervalH };
@@ -632,7 +827,6 @@
   }
 
   async function loadOKX() {
-    // Fetch tickers + funding-rate per instrument (simple + reliable)
     const tickTasks = [];
     const fundTasks = [];
 
@@ -666,7 +860,6 @@
   }
 
   async function loadKrakenFutures() {
-    // All tickers in one shot
     const j = await fetchJson("https://futures.kraken.com/derivatives/api/v3/tickers");
     const arr = j?.tickers || j?.result || j;
     const tMap = new Map();
@@ -685,17 +878,10 @@
       const t = tMap.get(sym);
       if (!t) continue;
 
-      const px = Number(
-        t?.markPrice ?? t?.mark_price ?? t?.last ?? t?.lastPrice ?? t?.last_price
-      );
+      const px = Number(t?.markPrice ?? t?.mark_price ?? t?.last ?? t?.lastPrice ?? t?.last_price);
       if (Number.isFinite(px)) prices.kraken[coin] = px;
 
-      // Funding fields can vary; try common names
-      const fr = Number(
-        t?.fundingRate ?? t?.funding_rate ?? t?.funding_rate_prediction ?? t?.fundingRatePrediction
-      );
-
-      // Kraken perps are typically hourly; if a next_funding_time exists we could infer later, but keep 1h default
+      const fr = Number(t?.fundingRate ?? t?.funding_rate ?? t?.funding_rate_prediction ?? t?.fundingRatePrediction);
       if (Number.isFinite(fr)) funding.kraken[coin] = { rate: fr, intervalH: 1 };
     }
   }
@@ -705,12 +891,11 @@
     priceStatus.textContent = "Updating…";
     priceStatus.className = "muted";
 
-    // Clear only selected exchanges so removed ones don't show stale
     for (const ex of Object.keys(prices)) prices[ex] = {};
 
     const tasks = [];
     if (selectedEx.has("hyper")) tasks.push(loadHyperliquid());
-    if (selectedEx.has("aster")) tasks.push(loadAster()); // includes prices
+    if (selectedEx.has("aster")) tasks.push(loadAster());
     if (selectedEx.has("okx")) tasks.push(loadOKX());
     if (selectedEx.has("kraken")) tasks.push(loadKrakenFutures());
 
@@ -730,7 +915,6 @@
 
     for (const ex of Object.keys(funding)) funding[ex] = {};
 
-    // Most loaders already also fill funding (Hyper, Aster, OKX, Kraken)
     const tasks = [];
     if (selectedEx.has("hyper")) tasks.push(loadHyperliquid());
     if (selectedEx.has("aster")) tasks.push(loadAster());
@@ -741,6 +925,13 @@
 
     renderFunding();
     renderFundingArb();
+
+    // Update Daily Insights funding based on current snapshot
+    updateDailyFundingFromCurrent();
+    pruneDailyStore();
+    saveDailyStore();
+    renderDailyInsights();
+
     const ms = Date.now() - start;
     fundingStatus.textContent = `Updated: ${new Date().toLocaleTimeString()} (${ms} ms)`;
     fundingStatus.className = "muted ok";
@@ -751,7 +942,6 @@
     const exList = EXCHANGES.filter(e => selectedEx.has(e.key));
     const coinsList = COINS.filter(c => selectedCoins.has(c));
 
-    // Prices head
     pricesHead.innerHTML = `
       <tr>
         <th>Asset</th>
@@ -761,7 +951,6 @@
       </tr>
     `;
 
-    // Funding head: 3 cols per exchange
     fundingHead.innerHTML = `
       <tr>
         <th>Asset</th>
@@ -773,35 +962,46 @@
       </tr>
     `;
 
-    // Build bodies (rows are re-rendered each refresh too)
-    priceRows.innerHTML = coinsList.map(c => `<tr id="pr_${c}"><td class="asset">${c}</td></tr>`).join("");
-    fundingRows.innerHTML = coinsList.map(c => `<tr id="fr_${c}"><td class="asset">${c}</td></tr>`).join("");
+    priceRows.innerHTML = coinsList.map(c => `<tr><td class="asset">${c}</td></tr>`).join("");
+    fundingRows.innerHTML = coinsList.map(c => `<tr><td class="asset">${c}</td></tr>`).join("");
   }
 
   function renderPrices() {
     pruneHighStore();
+    pruneDailyStore();
 
     const exList = EXCHANGES.filter(e => selectedEx.has(e.key));
     const coinsList = COINS.filter(c => selectedCoins.has(c));
 
     priceRows.innerHTML = coinsList.map(coin => {
-      const pxs = [];
+      const pxs = []; // [{ex, p}]
       const cells = exList.map(e => {
         const p = prices?.[e.key]?.[coin];
-        if (Number.isFinite(p)) pxs.push(p);
+        if (Number.isFinite(p)) pxs.push({ ex: e.key, p });
         return `<td class="right">${fmtUsd(p)}</td>`;
       }).join("");
 
       let spreadBps = null;
+      let buyEx = null;
+      let sellEx = null;
+
       if (pxs.length >= 2) {
-        const min = Math.min(...pxs);
-        const max = Math.max(...pxs);
-        if (min > 0) spreadBps = 10000 * (max - min) / min;
+        pxs.sort((a,b) => a.p - b.p);
+        const min = pxs[0];
+        const max = pxs[pxs.length - 1];
+        if (min.p > 0) {
+          spreadBps = 10000 * (max.p - min.p) / min.p;
+          buyEx = min.ex;
+          sellEx = max.ex;
+        }
       }
 
-      if (Number.isFinite(spreadBps)) updateHigh(coin, spreadBps);
-      const hi = get24hHigh(coin);
+      if (Number.isFinite(spreadBps)) {
+        updateHigh(coin, spreadBps);
+        updateDailySpread(coin, spreadBps, buyEx, sellEx);
+      }
 
+      const hi = get24hHigh(coin);
       const hot = Number.isFinite(spreadBps) && spreadBps >= BPS_HIGHLIGHT ? "hot" : "";
       const spreadTxt = Number.isFinite(spreadBps) ? fmtBpsAbs(spreadBps) : "—";
       const highTxt = hi ? fmtBpsAbs(hi.s) : "—";
@@ -818,6 +1018,8 @@
     }).join("");
 
     saveHighStore();
+    saveDailyStore();
+    renderDailyInsights();
   }
 
   function renderFunding() {
@@ -854,7 +1056,10 @@
     faLongEx.innerHTML = exList.map(e => `<option value="${e.key}">${e.name}</option>`).join("");
     faShortEx.innerHTML = exList.map(e => `<option value="${e.key}">${e.name}</option>`).join("");
 
-    // sensible defaults
+    if (coinsList.length) {
+      if (!coinsList.includes(arbAsset.value)) arbAsset.value = coinsList[0];
+      if (!coinsList.includes(faAsset.value)) faAsset.value = coinsList[0];
+    }
     if (exList.length >= 2) {
       arbBuyEx.value = exList[0].key;
       arbSellEx.value = exList[1].key;
@@ -873,10 +1078,8 @@
 
     let curBps = null;
     if (Number.isFinite(buyPx) && Number.isFinite(sellPx) && buyPx > 0) {
-      // Spread from buy to sell: (sell - buy)/buy
       curBps = 10000 * (sellPx - buyPx) / buyPx;
     }
-
     arbCurBps.textContent = Number.isFinite(curBps) ? fmtBpsSigned(curBps).text : "—";
 
     const notional = Number(arbNotional.value || 0);
@@ -925,6 +1128,7 @@
       faFundingPnl.textContent = "—";
       faCosts.textContent = "—";
       faNet.textContent = "Choose different venues";
+      faNet.className = "v";
       return;
     }
 
@@ -932,6 +1136,7 @@
       faFundingPnl.textContent = "—";
       faCosts.textContent = "—";
       faNet.textContent = "Waiting for funding…";
+      faNet.className = "v";
       return;
     }
 
@@ -947,6 +1152,36 @@
     faCosts.textContent = money(costs);
     faNet.textContent = money(net);
     faNet.className = "v " + (net >= 0 ? "pos" : "neg");
+  }
+
+  // ===== Daily funding “best pair” from current snapshot =====
+  function updateDailyFundingFromCurrent() {
+    const exList = EXCHANGES.filter(e => selectedEx.has(e.key));
+    const coinsList = COINS.filter(c => selectedCoins.has(c));
+
+    for (const coin of coinsList) {
+      const perHour = []; // {ex, rph}
+      for (const e of exList) {
+        const rec = funding?.[e.key]?.[coin];
+        const r = Number(rec?.rate);
+        const ih = Number(rec?.intervalH);
+        if (!Number.isFinite(r) || !Number.isFinite(ih) || ih <= 0) continue;
+        perHour.push({ ex: e.key, rph: r / ih });
+      }
+      if (perHour.length < 2) continue;
+
+      // Best carry: long the most negative rph, short the most positive rph
+      perHour.sort((a,b) => a.rph - b.rph);
+      const bestLong = perHour[0];
+      const bestShort = perHour[perHour.length - 1];
+
+      const netPerHour = (-bestLong.rph) + (bestShort.rph);
+      const netAprPct = netPerHour * 24 * 365 * 100;
+
+      if (Number.isFinite(netAprPct) && netAprPct > 0) {
+        updateDailyFunding(coin, netAprPct, bestLong.ex, bestShort.ex);
+      }
+    }
   }
 
   // ===== Buttons/events =====
@@ -975,16 +1210,21 @@
 
     loadFilters();
     loadHighStore();
+    loadDailyStore();
+
     pruneHighStore();
+    pruneDailyStore();
+
     saveHighStore();
+    saveDailyStore();
 
     renderFilterUI();
     buildTables();
     refreshAllDropdowns();
 
-    // first fetch
     refreshPrices();
     refreshFunding();
+    renderDailyInsights();
 
     setInterval(refreshPrices, PRICES_REFRESH_MS);
     setInterval(refreshFunding, FUNDING_REFRESH_MS);
