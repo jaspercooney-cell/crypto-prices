@@ -32,7 +32,6 @@
     .font-orbitron{ font-family: Orbitron, system-ui, sans-serif; }
     .font-monoNums{ font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
 
-    /* Glassmorphism card */
     .glass{
       background: rgba(17, 24, 39, 0.45);
       border: 1px solid rgba(255,255,255,0.08);
@@ -43,7 +42,6 @@
       -webkit-backdrop-filter: blur(16px);
     }
 
-    /* Neon ring / glow */
     .neon-ring{
       box-shadow: 0 0 0 1px rgba(0,255,157,0.22), 0 0 18px rgba(0,255,157,0.12);
     }
@@ -51,7 +49,6 @@
       box-shadow: 0 0 0 1px rgba(99,102,241,0.22), 0 0 18px rgba(99,102,241,0.12);
     }
 
-    /* Tab pills */
     .tab-pill{
       border: 1px solid rgba(255,255,255,0.10);
       background: rgba(11, 18, 32, 0.45);
@@ -69,17 +66,14 @@
         0 0 22px rgba(0,255,157,0.14);
     }
 
-    /* Table zebra + hover */
     .zebra tbody tr:nth-child(odd){ background: rgba(255,255,255,0.02); }
     .zebra tbody tr:hover{ background: rgba(255,255,255,0.05); transform: translateZ(0); }
 
-    /* Highlight row >= 5bp with glow */
     .hot-row{
       box-shadow: 0 0 0 1px rgba(0,255,157,0.22), 0 0 22px rgba(0,255,157,0.12);
       background: rgba(0,255,157,0.06) !important;
     }
 
-    /* Live status pulse */
     .pulse-dot{
       width: 10px; height: 10px; border-radius: 9999px;
       background: var(--neon);
@@ -92,7 +86,6 @@
       100%{ box-shadow: 0 0 0 0 rgba(0,255,157,0.00); }
     }
 
-    /* Gradient button */
     .btn-grad{
       background: linear-gradient(135deg, rgba(0,255,157,0.22), rgba(99,102,241,0.22));
       border: 1px solid rgba(255,255,255,0.10);
@@ -106,16 +99,14 @@
     }
     .btn-ghost:hover{ transform: translateY(-1px); border-color: rgba(99,102,241,0.28); }
 
-    /* Header */
     .header-glass{
       background: rgba(10, 14, 23, 0.55);
       border-bottom: 1px solid rgba(255,255,255,0.07);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
     }
-    .content-pad{ padding-top: 112px; } /* slightly bigger because more tabs */
+    .content-pad{ padding-top: 118px; }
 
-    /* Inputs */
     .input-glass{
       background: rgba(11, 18, 32, 0.45);
       border: 1px solid rgba(255,255,255,0.10);
@@ -125,431 +116,453 @@
       border-color: rgba(0,255,157,0.35);
       box-shadow: 0 0 0 1px rgba(0,255,157,0.22), 0 0 16px rgba(0,255,157,0.10);
     }
+
+    .hm-cell{
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.02);
+      transition: transform .12s ease, box-shadow .12s ease;
+    }
+    .hm-cell:hover{
+      transform: translateY(-1px);
+      box-shadow: 0 12px 28px rgba(0,0,0,0.35);
+    }
   </style>
 </head>
 
 <body>
-  <!-- Fixed Header -->
-  <header class="header-glass fixed top-0 left-0 right-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
-      <div class="flex items-center gap-3">
-        <div class="w-9 h-9 rounded-2xl glass neon-ring flex items-center justify-center">
-          <div class="w-4 h-4 rounded-md" style="background: linear-gradient(135deg, var(--neon), var(--purple));"></div>
+<header class="header-glass fixed top-0 left-0 right-0 z-50">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-2xl glass neon-ring flex items-center justify-center">
+        <div class="w-4 h-4 rounded-md" style="background: linear-gradient(135deg, var(--neon), var(--purple));"></div>
+      </div>
+      <div>
+        <div class="font-orbitron text-lg sm:text-xl tracking-[0.22em] text-white">PERP INSIGHTS</div>
+        <div class="text-xs text-gray-400">Cyber-finance dashboard · Live perp pricing + funding</div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 glass px-3 py-2 rounded-2xl">
+        <div class="pulse-dot"></div>
+        <div class="text-xs text-gray-200">
+          <span class="text-gray-400">Status:</span>
+          <span id="liveStatusText" class="font-monoNums">Connecting…</span>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-4">
+    <div class="flex gap-2 overflow-x-auto pb-1">
+      <button class="tab-pill active px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap" data-tab="prices">Prices</button>
+      <button class="tab-pill px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap" data-tab="funding">Funding</button>
+      <button class="tab-pill px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap" data-tab="heatmap">Funding heatmap</button>
+      <button class="tab-pill px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap" data-tab="leaderboard">Leaderboard</button>
+      <button class="tab-pill px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap" data-tab="spreadcalc">Spread convergence calculator</button>
+      <button class="tab-pill px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap" data-tab="fundarb">Funding arb calculator</button>
+      <button class="tab-pill px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap" data-tab="daily">Daily insights</button>
+    </div>
+  </div>
+</header>
+
+<main class="content-pad">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+
+    <section class="glass rounded-3xl p-5 sm:p-6">
+      <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div class="font-orbitron text-lg sm:text-xl tracking-[0.22em] text-white">
-            PERP INSIGHTS
+          <div class="font-orbitron text-sm tracking-[0.18em] text-gray-100">FILTERS</div>
+          <div class="text-xs text-gray-400 mt-1" id="filterStatus">Choose exchanges + coins, then “Apply filters”.</div>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn-ghost px-4 py-2 rounded-xl text-sm" id="resetFilters">Reset defaults</button>
+          <button class="btn-grad px-4 py-2 rounded-xl text-sm" id="applyFilters">Apply filters</button>
+        </div>
+      </div>
+
+      <div class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="glass rounded-2xl p-4 purple-ring">
+          <div class="text-xs text-gray-300 font-semibold mb-3">Exchanges</div>
+          <div class="grid grid-cols-2 gap-2" id="exchChecks"></div>
+          <div class="mt-3 flex gap-2">
+            <button class="btn-ghost px-3 py-2 rounded-xl text-xs" id="exAll">Select all</button>
+            <button class="btn-ghost px-3 py-2 rounded-xl text-xs" id="exNone">Clear</button>
           </div>
-          <div class="text-xs text-gray-400">
-            Cyber-finance dashboard · Live perp pricing + funding
+        </div>
+
+        <div class="glass rounded-2xl p-4 neon-ring">
+          <div class="text-xs text-gray-300 font-semibold mb-3">Coins</div>
+          <div class="max-h-56 overflow-auto pr-2 grid grid-cols-3 gap-2" id="coinChecks"></div>
+          <div class="mt-3 flex gap-2">
+            <button class="btn-ghost px-3 py-2 rounded-xl text-xs" id="cAll">Select all</button>
+            <button class="btn-ghost px-3 py-2 rounded-xl text-xs" id="cNone">Clear</button>
           </div>
         </div>
       </div>
 
-      <div class="flex items-center gap-3">
-        <div class="flex items-center gap-2 glass px-3 py-2 rounded-2xl">
-          <div class="pulse-dot"></div>
-          <div class="text-xs text-gray-200">
-            <span class="text-gray-400">Status:</span>
-            <span id="liveStatusText" class="font-monoNums">Connecting…</span>
-          </div>
-        </div>
+      <div class="mt-4 text-xs text-gray-400">
+        <span class="text-gray-300 font-semibold">Row glow:</span>
+        rows highlight when spread across selected exchanges ≥
+        <span class="font-monoNums" style="color:var(--neon)">25 bps</span>.
       </div>
-    </div>
+    </section>
 
-    <!-- Tabs -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-4">
-      <div class="flex gap-2 overflow-x-auto pb-1">
-        <button class="tab-pill active px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap" data-tab="prices">Prices</button>
-        <button class="tab-pill px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap" data-tab="funding">Funding</button>
-        <button class="tab-pill px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap" data-tab="leaderboard">Leaderboard</button>
-        <button class="tab-pill px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap" data-tab="spreadcalc">Spread convergence calculator</button>
-        <button class="tab-pill px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap" data-tab="fundarb">Funding arb calculator</button>
-        <button class="tab-pill px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap" data-tab="daily">Daily insights</button>
-      </div>
-    </div>
-  </header>
-
-  <main class="content-pad">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-
-      <!-- Filters -->
-      <section class="glass rounded-3xl p-5 sm:p-6">
+    <!-- PRICES -->
+    <section id="tab-prices" class="tab-panel space-y-4">
+      <div class="glass rounded-3xl p-5 sm:p-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div class="font-orbitron text-sm tracking-[0.18em] text-gray-100">FILTERS</div>
-            <div class="text-xs text-gray-400 mt-1" id="filterStatus">Choose exchanges + coins, then “Apply filters”.</div>
+            <div class="font-orbitron text-sm tracking-[0.18em] text-gray-100">PRICES</div>
+            <div class="text-xs text-gray-400 mt-1">
+              Spread bps = 10,000 × (max − min) / min · “24h High” stored in your browser
+            </div>
+            <div class="text-xs text-gray-400 mt-1">
+              Row will glow when price difference exceeds or equals <span class="font-monoNums" style="color:var(--neon)">25 bps</span>.
+            </div>
           </div>
-          <div class="flex gap-2">
-            <button class="btn-ghost px-4 py-2 rounded-xl text-sm" id="resetFilters">Reset defaults</button>
-            <button class="btn-grad px-4 py-2 rounded-xl text-sm" id="applyFilters">Apply filters</button>
+          <div class="text-xs text-gray-200 glass rounded-2xl px-3 py-2">
+            <span class="text-gray-400">Updated:</span>
+            <span id="priceStatus" class="font-monoNums">Loading…</span>
           </div>
         </div>
 
-        <div class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="mt-4 overflow-x-auto rounded-2xl">
+          <table class="w-full zebra">
+            <thead id="pricesHead" class="text-xs uppercase tracking-wider text-gray-300"></thead>
+            <tbody id="priceRows" class="text-sm"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- FUNDING -->
+    <section id="tab-funding" class="tab-panel hidden space-y-4">
+      <div class="glass rounded-3xl p-5 sm:p-6">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div class="font-orbitron text-sm tracking-[0.18em] text-gray-100">FUNDING</div>
+            <div class="text-xs text-gray-400 mt-1">
+              365-day = rate_per_window × (365×24 / interval_hours)
+            </div>
+          </div>
+          <div class="text-xs text-gray-200 glass rounded-2xl px-3 py-2">
+            <span class="text-gray-400">Updated:</span>
+            <span id="fundingStatus" class="font-monoNums">Loading…</span>
+          </div>
+        </div>
+
+        <div class="mt-4 overflow-x-auto rounded-2xl">
+          <table class="w-full zebra">
+            <thead id="fundingHead" class="text-xs uppercase tracking-wider text-gray-300"></thead>
+            <tbody id="fundingRows" class="text-sm"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- FUNDING HEATMAP -->
+    <section id="tab-heatmap" class="tab-panel hidden space-y-4">
+      <div class="glass rounded-3xl p-5 sm:p-6">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div class="font-orbitron text-sm tracking-[0.18em] text-gray-100">FUNDING HEATMAP</div>
+            <div class="text-xs text-gray-400 mt-1">
+              Colors show funding per interval (red = longs pay, green = shorts pay). Uses your live funding data.
+            </div>
+            <div class="text-xs text-gray-500 mt-1">
+              Hover a cell for interval + normalized 365-day rate.
+            </div>
+          </div>
+          <div class="text-xs text-gray-200 glass rounded-2xl px-3 py-2">
+            <span class="text-gray-400">Updated:</span>
+            <span id="heatmapStatus" class="font-monoNums">Loading…</span>
+          </div>
+        </div>
+
+        <div class="mt-4 overflow-x-auto">
+          <div id="heatmapGrid" class="min-w-[760px]"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LEADERBOARD -->
+    <section id="tab-leaderboard" class="tab-panel hidden space-y-4">
+      <div class="glass rounded-3xl p-5 sm:p-6">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div class="font-orbitron text-sm tracking-[0.18em] text-gray-100">LEADERBOARD</div>
+            <div class="text-xs text-gray-400 mt-1">
+              Ranked by highest spread (bps) across your selected exchanges
+            </div>
+          </div>
+          <div class="text-xs text-gray-200 glass rounded-2xl px-3 py-2">
+            <span class="text-gray-400">Snapshot:</span>
+            <span id="leaderStatus" class="font-monoNums">Waiting…</span>
+          </div>
+        </div>
+
+        <div class="mt-4 overflow-x-auto rounded-2xl">
+          <table class="w-full zebra">
+            <thead class="text-xs uppercase tracking-wider text-gray-300">
+              <tr>
+                <th class="py-3 px-3 text-left">Coin</th>
+                <th class="py-3 px-3 text-left">Buy @</th>
+                <th class="py-3 px-3 text-left">Sell @</th>
+                <th class="py-3 px-3 text-right">Spread (bps)</th>
+                <th class="py-3 px-3 text-right">24h High (bps)</th>
+              </tr>
+            </thead>
+            <tbody id="leaderRows" class="text-sm">
+              <tr><td colspan="5" class="py-4 px-3 text-xs text-gray-400">Waiting for first price refresh…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- SPREAD CONVERGENCE CALC -->
+    <section id="tab-spreadcalc" class="tab-panel hidden space-y-4">
+      <div class="glass rounded-3xl p-5 sm:p-6">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div class="font-orbitron text-sm tracking-[0.18em] text-gray-100">SPREAD CONVERGENCE CALCULATOR</div>
+            <div class="text-xs text-gray-400 mt-1">
+              Uses live prices · Gross ≈ Notional × (Convergence bps / 10,000)
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="glass rounded-2xl p-4 purple-ring">
-            <div class="text-xs text-gray-300 font-semibold mb-3">Exchanges</div>
-            <div class="grid grid-cols-2 gap-2" id="exchChecks"></div>
-            <div class="mt-3 flex gap-2">
-              <button class="btn-ghost px-3 py-2 rounded-xl text-xs" id="exAll">Select all</button>
-              <button class="btn-ghost px-3 py-2 rounded-xl text-xs" id="exNone">Clear</button>
+            <div class="text-xs text-gray-300 font-semibold mb-3">Inputs</div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs text-gray-400">Asset</label>
+                <select id="arbAsset" class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm"></select>
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Notional (USD)</label>
+                <input id="arbNotional" type="number" value="100000" min="0" step="1000"
+                       class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm font-monoNums">
+              </div>
+
+              <div>
+                <label class="text-xs text-gray-400">Buy exchange</label>
+                <select id="arbBuyEx" class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm"></select>
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Sell exchange</label>
+                <select id="arbSellEx" class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm"></select>
+              </div>
+
+              <div>
+                <label class="text-xs text-gray-400">Target convergence (bps)</label>
+                <input id="arbConvBps" type="number" value="5" step="0.1"
+                       class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm font-monoNums">
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Total costs (bps)</label>
+                <input id="arbCostsBps" type="number" value="3" step="0.1"
+                       class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm font-monoNums">
+              </div>
+            </div>
+
+            <div class="mt-4 flex gap-2">
+              <button class="btn-grad px-4 py-2 rounded-xl text-sm" id="arbRecalc">Recalculate</button>
             </div>
           </div>
 
           <div class="glass rounded-2xl p-4 neon-ring">
-            <div class="text-xs text-gray-300 font-semibold mb-3">Coins</div>
-            <div class="max-h-56 overflow-auto pr-2 grid grid-cols-3 gap-2" id="coinChecks"></div>
-            <div class="mt-3 flex gap-2">
-              <button class="btn-ghost px-3 py-2 rounded-xl text-xs" id="cAll">Select all</button>
-              <button class="btn-ghost px-3 py-2 rounded-xl text-xs" id="cNone">Clear</button>
+            <div class="text-xs text-gray-300 font-semibold mb-3">Output</div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="glass rounded-2xl p-3">
+                <div class="text-xs text-gray-400">Current buy/sell spread</div>
+                <div id="arbCurBps" class="mt-1 font-monoNums text-lg">—</div>
+              </div>
+              <div class="glass rounded-2xl p-3">
+                <div class="text-xs text-gray-400">Gross PnL (USD)</div>
+                <div id="arbGross" class="mt-1 font-monoNums text-lg">—</div>
+              </div>
+              <div class="glass rounded-2xl p-3">
+                <div class="text-xs text-gray-400">Costs (USD)</div>
+                <div id="arbCosts" class="mt-1 font-monoNums text-lg">—</div>
+              </div>
+              <div class="glass rounded-2xl p-3">
+                <div class="text-xs text-gray-400">Net PnL (USD)</div>
+                <div id="arbNet" class="mt-1 font-monoNums text-lg">—</div>
+              </div>
+            </div>
+
+            <div class="mt-4 text-xs text-gray-400">
+              Tip: pick the cheapest exchange as Buy and most expensive as Sell for a pure spread convergence arb.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FUNDING ARB CALC -->
+    <section id="tab-fundarb" class="tab-panel hidden space-y-4">
+      <div class="glass rounded-3xl p-5 sm:p-6">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div class="font-orbitron text-sm tracking-[0.18em] text-gray-100">FUNDING ARB CALCULATOR</div>
+            <div class="text-xs text-gray-400 mt-1">
+              Long one venue, short the other · Uses live funding + each venue interval
             </div>
           </div>
         </div>
 
-        <div class="mt-4 text-xs text-gray-400">
-          <span class="text-gray-300 font-semibold">Row glow:</span>
-          rows highlight when spread across selected exchanges ≥ <span class="font-monoNums" style="color:var(--neon)">5 bps</span>.
-        </div>
-      </section>
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="glass rounded-2xl p-4 purple-ring">
+            <div class="text-xs text-gray-300 font-semibold mb-3">Inputs</div>
 
-      <!-- PRICES TAB -->
-      <section id="tab-prices" class="tab-panel space-y-4">
-        <div class="glass rounded-3xl p-5 sm:p-6">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div class="font-orbitron text-sm tracking-[0.18em] text-gray-100">PRICES</div>
-              <div class="text-xs text-gray-400 mt-1">
-                Spread bps = 10,000 × (max − min) / min · “24h High” stored in your browser
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs text-gray-400">Asset</label>
+                <select id="faAsset" class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm"></select>
               </div>
-            </div>
-            <div class="text-xs text-gray-200 glass rounded-2xl px-3 py-2">
-              <span class="text-gray-400">Updated:</span>
-              <span id="priceStatus" class="font-monoNums">Loading…</span>
-            </div>
-          </div>
-
-          <div class="mt-4 overflow-x-auto rounded-2xl">
-            <table class="w-full zebra">
-              <thead id="pricesHead" class="text-xs uppercase tracking-wider text-gray-300"></thead>
-              <tbody id="priceRows" class="text-sm"></tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <!-- FUNDING TAB -->
-      <section id="tab-funding" class="tab-panel hidden space-y-4">
-        <div class="glass rounded-3xl p-5 sm:p-6">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div class="font-orbitron text-sm tracking-[0.18em] text-gray-100">FUNDING</div>
-              <div class="text-xs text-gray-400 mt-1">
-                365-day = rate_per_window × (365×24 / interval_hours)
-              </div>
-            </div>
-            <div class="text-xs text-gray-200 glass rounded-2xl px-3 py-2">
-              <span class="text-gray-400">Updated:</span>
-              <span id="fundingStatus" class="font-monoNums">Loading…</span>
-            </div>
-          </div>
-
-          <div class="mt-4 overflow-x-auto rounded-2xl">
-            <table class="w-full zebra">
-              <thead id="fundingHead" class="text-xs uppercase tracking-wider text-gray-300"></thead>
-              <tbody id="fundingRows" class="text-sm"></tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <!-- LEADERBOARD TAB -->
-      <section id="tab-leaderboard" class="tab-panel hidden space-y-4">
-        <div class="glass rounded-3xl p-5 sm:p-6">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div class="font-orbitron text-sm tracking-[0.18em] text-gray-100">LEADERBOARD</div>
-              <div class="text-xs text-gray-400 mt-1">
-                Ranked by highest spread (bps) across your selected exchanges
-              </div>
-            </div>
-            <div class="text-xs text-gray-200 glass rounded-2xl px-3 py-2">
-              <span class="text-gray-400">Snapshot:</span>
-              <span id="leaderStatus" class="font-monoNums">Waiting…</span>
-            </div>
-          </div>
-
-          <div class="mt-4 overflow-x-auto rounded-2xl">
-            <table class="w-full zebra">
-              <thead class="text-xs uppercase tracking-wider text-gray-300">
-                <tr>
-                  <th class="py-3 px-3 text-left">Coin</th>
-                  <th class="py-3 px-3 text-left">Buy @</th>
-                  <th class="py-3 px-3 text-left">Sell @</th>
-                  <th class="py-3 px-3 text-right">Spread (bps)</th>
-                  <th class="py-3 px-3 text-right">24h High (bps)</th>
-                </tr>
-              </thead>
-              <tbody id="leaderRows" class="text-sm">
-                <tr><td colspan="5" class="py-4 px-3 text-xs text-gray-400">Waiting for first price refresh…</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <!-- SPREAD CONVERGENCE CALCULATOR TAB -->
-      <section id="tab-spreadcalc" class="tab-panel hidden space-y-4">
-        <div class="glass rounded-3xl p-5 sm:p-6">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div class="font-orbitron text-sm tracking-[0.18em] text-gray-100">SPREAD CONVERGENCE CALCULATOR</div>
-              <div class="text-xs text-gray-400 mt-1">
-                Uses live prices · Gross ≈ Notional × (Convergence bps / 10,000)
-              </div>
-            </div>
-          </div>
-
-          <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="glass rounded-2xl p-4 purple-ring">
-              <div class="text-xs text-gray-300 font-semibold mb-3">Inputs</div>
-
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label class="text-xs text-gray-400">Asset</label>
-                  <select id="arbAsset" class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm"></select>
-                </div>
-                <div>
-                  <label class="text-xs text-gray-400">Notional (USD)</label>
-                  <input id="arbNotional" type="number" value="100000" min="0" step="1000"
-                         class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm font-monoNums">
-                </div>
-
-                <div>
-                  <label class="text-xs text-gray-400">Buy exchange</label>
-                  <select id="arbBuyEx" class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm"></select>
-                </div>
-                <div>
-                  <label class="text-xs text-gray-400">Sell exchange</label>
-                  <select id="arbSellEx" class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm"></select>
-                </div>
-
-                <div>
-                  <label class="text-xs text-gray-400">Target convergence (bps)</label>
-                  <input id="arbConvBps" type="number" value="5" step="0.1"
-                         class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm font-monoNums">
-                </div>
-                <div>
-                  <label class="text-xs text-gray-400">Total costs (bps)</label>
-                  <input id="arbCostsBps" type="number" value="3" step="0.1"
-                         class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm font-monoNums">
-                </div>
+              <div>
+                <label class="text-xs text-gray-400">Notional (USD) per leg</label>
+                <input id="faNotional" type="number" value="100000" min="0" step="1000"
+                       class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm font-monoNums">
               </div>
 
-              <div class="mt-4 flex gap-2">
-                <button class="btn-grad px-4 py-2 rounded-xl text-sm" id="arbRecalc">Recalculate</button>
+              <div>
+                <label class="text-xs text-gray-400">Long venue</label>
+                <select id="faLongEx" class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm"></select>
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Short venue</label>
+                <select id="faShortEx" class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm"></select>
+              </div>
+
+              <div>
+                <label class="text-xs text-gray-400">Holding period (hours)</label>
+                <input id="faHoldHours" type="number" value="24" min="0" step="1"
+                       class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm font-monoNums">
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Total costs (bps)</label>
+                <input id="faCostsBps" type="number" value="3" step="0.1"
+                       class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm font-monoNums">
               </div>
             </div>
 
-            <div class="glass rounded-2xl p-4 neon-ring">
-              <div class="text-xs text-gray-300 font-semibold mb-3">Output</div>
+            <div class="mt-4 flex gap-2">
+              <button class="btn-grad px-4 py-2 rounded-xl text-sm" id="faRecalc">Recalculate</button>
+            </div>
 
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div class="glass rounded-2xl p-3">
-                  <div class="text-xs text-gray-400">Current buy/sell spread</div>
-                  <div id="arbCurBps" class="mt-1 font-monoNums text-lg">—</div>
-                </div>
-                <div class="glass rounded-2xl p-3">
-                  <div class="text-xs text-gray-400">Gross PnL (USD)</div>
-                  <div id="arbGross" class="mt-1 font-monoNums text-lg">—</div>
-                </div>
-                <div class="glass rounded-2xl p-3">
-                  <div class="text-xs text-gray-400">Costs (USD)</div>
-                  <div id="arbCosts" class="mt-1 font-monoNums text-lg">—</div>
-                </div>
-                <div class="glass rounded-2xl p-3">
-                  <div class="text-xs text-gray-400">Net PnL (USD)</div>
-                  <div id="arbNet" class="mt-1 font-monoNums text-lg">—</div>
-                </div>
+            <div class="mt-3 text-xs text-gray-400">
+              Assumes “positive funding = longs pay shorts”.
+            </div>
+          </div>
+
+          <div class="glass rounded-2xl p-4 neon-ring">
+            <div class="text-xs text-gray-300 font-semibold mb-3">Output</div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="glass rounded-2xl p-3">
+                <div class="text-xs text-gray-400">Long funding / interval</div>
+                <div id="faLongFund" class="mt-1 font-monoNums text-lg">—</div>
+              </div>
+              <div class="glass rounded-2xl p-3">
+                <div class="text-xs text-gray-400">Long interval / windows</div>
+                <div class="mt-1 font-monoNums text-lg"><span id="faLongInt">—</span> · <span id="faLongWin">—</span></div>
               </div>
 
-              <div class="mt-4 text-xs text-gray-400">
-                Tip: pick the cheapest exchange as Buy and most expensive as Sell for a pure spread convergence arb.
+              <div class="glass rounded-2xl p-3">
+                <div class="text-xs text-gray-400">Short funding / interval</div>
+                <div id="faShortFund" class="mt-1 font-monoNums text-lg">—</div>
+              </div>
+              <div class="glass rounded-2xl p-3">
+                <div class="text-xs text-gray-400">Short interval / windows</div>
+                <div class="mt-1 font-monoNums text-lg"><span id="faShortInt">—</span> · <span id="faShortWin">—</span></div>
+              </div>
+
+              <div class="glass rounded-2xl p-3">
+                <div class="text-xs text-gray-400">Funding PnL (USD)</div>
+                <div id="faFundingPnl" class="mt-1 font-monoNums text-lg">—</div>
+              </div>
+              <div class="glass rounded-2xl p-3">
+                <div class="text-xs text-gray-400">Net (after costs)</div>
+                <div id="faNet" class="mt-1 font-monoNums text-lg">—</div>
               </div>
             </div>
           </div>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <!-- FUNDING ARB CALCULATOR TAB -->
-      <section id="tab-fundarb" class="tab-panel hidden space-y-4">
-        <div class="glass rounded-3xl p-5 sm:p-6">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div class="font-orbitron text-sm tracking-[0.18em] text-gray-100">FUNDING ARB CALCULATOR</div>
-              <div class="text-xs text-gray-400 mt-1">
-                Long one venue, short the other · Uses live funding + each venue interval
-              </div>
+    <!-- DAILY -->
+    <section id="tab-daily" class="tab-panel hidden space-y-4">
+      <div class="glass rounded-3xl p-5 sm:p-6">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div class="font-orbitron text-sm tracking-[0.18em] text-gray-100">DAILY INSIGHTS (LAST 24H)</div>
+            <div class="text-xs text-gray-400 mt-1">
+              Best observed opportunities in the last 24 hours (based on what your browser has observed)
             </div>
           </div>
-
-          <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="glass rounded-2xl p-4 purple-ring">
-              <div class="text-xs text-gray-300 font-semibold mb-3">Inputs</div>
-
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label class="text-xs text-gray-400">Asset</label>
-                  <select id="faAsset" class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm"></select>
-                </div>
-                <div>
-                  <label class="text-xs text-gray-400">Notional (USD) per leg</label>
-                  <input id="faNotional" type="number" value="100000" min="0" step="1000"
-                         class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm font-monoNums">
-                </div>
-
-                <div>
-                  <label class="text-xs text-gray-400">Long venue</label>
-                  <select id="faLongEx" class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm"></select>
-                </div>
-                <div>
-                  <label class="text-xs text-gray-400">Short venue</label>
-                  <select id="faShortEx" class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm"></select>
-                </div>
-
-                <div>
-                  <label class="text-xs text-gray-400">Holding period (hours)</label>
-                  <input id="faHoldHours" type="number" value="24" min="0" step="1"
-                         class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm font-monoNums">
-                </div>
-                <div>
-                  <label class="text-xs text-gray-400">Total costs (bps)</label>
-                  <input id="faCostsBps" type="number" value="3" step="0.1"
-                         class="mt-1 w-full rounded-xl px-3 py-2 input-glass text-sm font-monoNums">
-                </div>
-              </div>
-
-              <div class="mt-4 flex gap-2">
-                <button class="btn-grad px-4 py-2 rounded-xl text-sm" id="faRecalc">Recalculate</button>
-              </div>
-
-              <div class="mt-3 text-xs text-gray-400">
-                Assumes “positive funding = longs pay shorts”. If an exchange reports the opposite sign, tell me and I’ll flip it.
-              </div>
-            </div>
-
-            <div class="glass rounded-2xl p-4 neon-ring">
-              <div class="text-xs text-gray-300 font-semibold mb-3">Output</div>
-
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div class="glass rounded-2xl p-3">
-                  <div class="text-xs text-gray-400">Long funding / interval</div>
-                  <div id="faLongFund" class="mt-1 font-monoNums text-lg">—</div>
-                </div>
-                <div class="glass rounded-2xl p-3">
-                  <div class="text-xs text-gray-400">Long interval / windows</div>
-                  <div class="mt-1 font-monoNums text-lg"><span id="faLongInt">—</span> · <span id="faLongWin">—</span></div>
-                </div>
-
-                <div class="glass rounded-2xl p-3">
-                  <div class="text-xs text-gray-400">Short funding / interval</div>
-                  <div id="faShortFund" class="mt-1 font-monoNums text-lg">—</div>
-                </div>
-                <div class="glass rounded-2xl p-3">
-                  <div class="text-xs text-gray-400">Short interval / windows</div>
-                  <div class="mt-1 font-monoNums text-lg"><span id="faShortInt">—</span> · <span id="faShortWin">—</span></div>
-                </div>
-
-                <div class="glass rounded-2xl p-3">
-                  <div class="text-xs text-gray-400">Funding PnL (USD)</div>
-                  <div id="faFundingPnl" class="mt-1 font-monoNums text-lg">—</div>
-                </div>
-                <div class="glass rounded-2xl p-3">
-                  <div class="text-xs text-gray-400">Net (after costs)</div>
-                  <div id="faNet" class="mt-1 font-monoNums text-lg">—</div>
-                </div>
-              </div>
-
-              <div class="mt-3 text-xs text-gray-400">
-                Funding PnL model uses each venue’s funding interval and your chosen holding hours.
-              </div>
-            </div>
+          <div class="text-xs text-gray-200 glass rounded-2xl px-3 py-2">
+            <span class="text-gray-400">Updated:</span>
+            <span id="dailyStatus" class="font-monoNums">Collecting…</span>
           </div>
         </div>
-      </section>
 
-      <!-- DAILY INSIGHTS TAB -->
-      <section id="tab-daily" class="tab-panel hidden space-y-4">
-        <div class="glass rounded-3xl p-5 sm:p-6">
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div class="font-orbitron text-sm tracking-[0.18em] text-gray-100">DAILY INSIGHTS (LAST 24H)</div>
-              <div class="text-xs text-gray-400 mt-1">
-                Best observed opportunities in the last 24 hours (based on what your browser has observed)
-              </div>
-            </div>
-            <div class="text-xs text-gray-200 glass rounded-2xl px-3 py-2">
-              <span class="text-gray-400">Updated:</span>
-              <span id="dailyStatus" class="font-monoNums">Collecting…</span>
-            </div>
-          </div>
-
-          <div class="mt-4 overflow-x-auto rounded-2xl">
-            <table class="w-full zebra">
-              <thead class="text-xs uppercase tracking-wider text-gray-300">
-                <tr>
-                  <th class="py-3 px-3 text-left">Insight</th>
-                  <th class="py-3 px-3 text-left">Coin</th>
-                  <th class="py-3 px-3 text-left">Action</th>
-                  <th class="py-3 px-3 text-right">Metric</th>
-                  <th class="py-3 px-3 text-right">Observed</th>
-                </tr>
-              </thead>
-              <tbody id="dailyRows" class="text-sm">
-                <tr><td colspan="5" class="py-4 px-3 text-xs text-gray-400">Waiting for data…</td></tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="mt-3 text-xs text-gray-500">
-            Note: GitHub Pages is static — “last 24h” uses browser localStorage and only includes data observed while the site is running.
-          </div>
+        <div class="mt-4 overflow-x-auto rounded-2xl">
+          <table class="w-full zebra">
+            <thead class="text-xs uppercase tracking-wider text-gray-300">
+              <tr>
+                <th class="py-3 px-3 text-left">Insight</th>
+                <th class="py-3 px-3 text-left">Coin</th>
+                <th class="py-3 px-3 text-left">Action</th>
+                <th class="py-3 px-3 text-right">Metric</th>
+                <th class="py-3 px-3 text-right">Observed</th>
+              </tr>
+            </thead>
+            <tbody id="dailyRows" class="text-sm">
+              <tr><td colspan="5" class="py-4 px-3 text-xs text-gray-400">Waiting for data…</td></tr>
+            </tbody>
+          </table>
         </div>
-      </section>
 
-      <footer class="pb-10 text-xs text-gray-500">
-        <div class="text-center">
-          Built with vanilla JS · Tailwind · Glassmorphism · Neon accents
+        <div class="mt-3 text-xs text-gray-500">
+          Note: GitHub Pages is static — “last 24h” uses browser localStorage and only includes data observed while the site is running.
         </div>
-      </footer>
+      </div>
+    </section>
 
-    </div>
-  </main>
+    <footer class="pb-10 text-xs text-gray-500">
+      <div class="text-center">Built with vanilla JS · Tailwind · Glassmorphism · Neon accents</div>
+    </footer>
+  </div>
+</main>
 
 <script>
-  // ======================================================================
-  // IMPORTANT: DATA LOGIC UNCHANGED (same fetch + calculations as before).
-  // Only structure/styling has been upgraded + missing tabs restored.
-  // ======================================================================
-
-  // === your worker ===
+  // ===========================
+  // CONFIG
+  // ===========================
   const PROXY_BASE = "https://purple-sky-264e.jasper-cooney.workers.dev/?url=";
 
-  const BPS_HIGHLIGHT = 5;
+  // ✅ Glow threshold now 25 bps
+  const BPS_HIGHLIGHT = 25;
+
   const PRICES_REFRESH_MS = 3000;
   const FUNDING_REFRESH_MS = 60000;
 
-  // 24h high spread across SELECTED exchanges (minute buckets)
   const HIGH_WINDOW_MINUTES = 24 * 60;
   const HIGH_STORE_KEY = "perpinsights_24h_high_spread_bps_v2";
 
-  // Daily Insights store (24h)
   const DAILY_STORE_KEY = "perpinsights_daily_insights_v1";
   const DAILY_WINDOW_MINUTES = 24 * 60;
 
-  // Same coins you currently had
+  // Coins you had
   const COINS = ["BTC","ETH","SOL","XRP","ZEC","DOGE","ADA","LINK","AVAX","LTC","BCH","DOT"];
 
-  // Exchange list
   const EXCHANGES = [
     { key:"hyper",  name:"Hyperliquid" },
     { key:"aster",  name:"Aster" },
@@ -557,16 +570,16 @@
     { key:"okx",    name:"OKX" },
   ];
 
-  // Symbol mappings per exchange
   const MAP = {
     hyper:  { BTC:"BTC", ETH:"ETH", SOL:"SOL", XRP:"XRP", ZEC:"ZEC", DOGE:"DOGE", ADA:"ADA", LINK:"LINK", AVAX:"AVAX", LTC:"LTC", BCH:"BCH", DOT:"DOT" },
     aster:  { BTC:"BTCUSDT", ETH:"ETHUSDT", SOL:"SOLUSDT", XRP:"XRPUSDT", ZEC:"ZECUSDT", DOGE:"DOGEUSDT", ADA:"ADAUSDT", LINK:"LINKUSDT", AVAX:"AVAXUSDT", LTC:"LTCUSDT", BCH:"BCHUSDT", DOT:"DOTUSDT" },
     okx:    { BTC:"BTC-USDT-SWAP", ETH:"ETH-USDT-SWAP", SOL:"SOL-USDT-SWAP", XRP:"XRP-USDT-SWAP", ZEC:"ZEC-USDT-SWAP", DOGE:"DOGE-USDT-SWAP", ADA:"ADA-USDT-SWAP", LINK:"LINK-USDT-SWAP", AVAX:"AVAX-USDT-SWAP", LTC:"LTC-USDT-SWAP", BCH:"BCH-USDT-SWAP", DOT:"DOT-USDT-SWAP" },
-    // Kraken Futures perpetuals commonly use XBT not BTC
     kraken: { BTC:"PF_XBTUSD", ETH:"PF_ETHUSD", SOL:"PF_SOLUSD", XRP:"PF_XRPUSD", ZEC:"PF_ZECUSD", DOGE:"PF_DOGEUSD", ADA:"PF_ADAUSD", LINK:"PF_LINKUSD", AVAX:"PF_AVAXUSD", LTC:"PF_LTCUSD", BCH:"PF_BCHUSD", DOT:"PF_DOTUSD" },
   };
 
-  // ===== DOM =====
+  // ===========================
+  // DOM
+  // ===========================
   const liveStatusText = document.getElementById("liveStatusText");
 
   const exchChecks = document.getElementById("exchChecks");
@@ -581,10 +594,12 @@
   const fundingRows = document.getElementById("fundingRows");
   const fundingStatus = document.getElementById("fundingStatus");
 
+  const heatmapStatus = document.getElementById("heatmapStatus");
+  const heatmapGrid = document.getElementById("heatmapGrid");
+
   const leaderStatus = document.getElementById("leaderStatus");
   const leaderRows = document.getElementById("leaderRows");
 
-  // Spread convergence calculator (same ids as earlier arb calc)
   const arbAsset = document.getElementById("arbAsset");
   const arbBuyEx = document.getElementById("arbBuyEx");
   const arbSellEx = document.getElementById("arbSellEx");
@@ -597,7 +612,6 @@
   const arbCosts = document.getElementById("arbCosts");
   const arbNet = document.getElementById("arbNet");
 
-  // Funding arb calculator (restored)
   const faAsset = document.getElementById("faAsset");
   const faLongEx = document.getElementById("faLongEx");
   const faShortEx = document.getElementById("faShortEx");
@@ -614,16 +628,18 @@
   const faFundingPnl = document.getElementById("faFundingPnl");
   const faNet = document.getElementById("faNet");
 
-  // Daily insights (restored)
   const dailyStatus = document.getElementById("dailyStatus");
   const dailyRows = document.getElementById("dailyRows");
 
-  // ===== Tabs =====
+  // ===========================
+  // TABS
+  // ===========================
   function initTabs() {
     const btns = document.querySelectorAll(".tab-pill");
     const panels = {
       prices: document.getElementById("tab-prices"),
       funding: document.getElementById("tab-funding"),
+      heatmap: document.getElementById("tab-heatmap"),
       leaderboard: document.getElementById("tab-leaderboard"),
       spreadcalc: document.getElementById("tab-spreadcalc"),
       fundarb: document.getElementById("tab-fundarb"),
@@ -642,21 +658,21 @@
         if (b.dataset.tab === "fundarb") renderFundingArb();
         if (b.dataset.tab === "leaderboard") renderLeaderboard();
         if (b.dataset.tab === "daily") renderDailyInsights();
+        if (b.dataset.tab === "heatmap") renderFundingHeatmap();
       });
     });
   }
 
-  // ===== Filters state =====
+  // ===========================
+  // FILTERS
+  // ===========================
   const FILTER_KEY = "perpinsights_filters_v1";
   let selectedEx = new Set(EXCHANGES.map(x => x.key));
   let selectedCoins = new Set(COINS);
 
   function saveFilters() {
     try {
-      localStorage.setItem(FILTER_KEY, JSON.stringify({
-        ex: [...selectedEx],
-        coins: [...selectedCoins],
-      }));
+      localStorage.setItem(FILTER_KEY, JSON.stringify({ ex:[...selectedEx], coins:[...selectedCoins] }));
     } catch {}
   }
   function loadFilters() {
@@ -699,14 +715,8 @@
     });
   }
 
-  function setAllEx(on) {
-    selectedEx = new Set(on ? EXCHANGES.map(x=>x.key) : []);
-    renderFilterUI();
-  }
-  function setAllCoins(on) {
-    selectedCoins = new Set(on ? COINS : []);
-    renderFilterUI();
-  }
+  function setAllEx(on){ selectedEx = new Set(on ? EXCHANGES.map(x=>x.key) : []); renderFilterUI(); }
+  function setAllCoins(on){ selectedCoins = new Set(on ? COINS : []); renderFilterUI(); }
 
   document.getElementById("exAll").onclick = () => setAllEx(true);
   document.getElementById("exNone").onclick = () => setAllEx(false);
@@ -716,13 +726,13 @@
   document.getElementById("applyFilters").onclick = () => {
     if (selectedEx.size < 1) { alert("Select at least 1 exchange"); return; }
     if (selectedCoins.size < 1) { alert("Select at least 1 coin"); return; }
-
     saveFilters();
     filterStatus.textContent = `Applied: ${selectedEx.size} exchanges, ${selectedCoins.size} coins.`;
     buildTables();
     refreshAllDropdowns();
     refreshPrices();
     refreshFunding();
+    renderFundingHeatmap();
   };
 
   document.getElementById("resetFilters").onclick = () => {
@@ -733,80 +743,102 @@
     document.getElementById("applyFilters").click();
   };
 
-  // ===== Helpers =====
-  function nowMinuteEpoch() { return Math.floor(Date.now() / 60000); }
+  // ===========================
+  // HELPERS
+  // ===========================
+  function nowMinuteEpoch(){ return Math.floor(Date.now()/60000); }
+  function exName(exKey){ return (EXCHANGES.find(e => e.key === exKey)?.name) || exKey; }
 
-  function exName(exKey) {
-    return (EXCHANGES.find(e => e.key === exKey)?.name) || exKey;
-  }
-
-  function fmtUsd(x) {
+  function fmtUsd(x){
     if (x === undefined || x === null || x === "" || Number.isNaN(Number(x))) return "—";
     const n = Number(x);
-    return n >= 1
-      ? "$" + n.toLocaleString(undefined, { maximumFractionDigits: 2 })
-      : "$" + n.toLocaleString(undefined, { maximumFractionDigits: 6 });
+    return n >= 1 ? "$" + n.toLocaleString(undefined,{ maximumFractionDigits:2 })
+                  : "$" + n.toLocaleString(undefined,{ maximumFractionDigits:6 });
   }
-  function fmtBpsAbs(x) {
+  function fmtBpsAbs(x){
     if (!Number.isFinite(x)) return "—";
     const abs = Math.abs(x);
     return abs.toFixed(abs < 10 ? 2 : 1) + " bps";
   }
-  function fmtBpsSigned(x) {
+  function fmtBpsSigned(x){
     if (!Number.isFinite(x)) return { text:"—", cls:"" };
     const abs = Math.abs(x);
-    return { text: (x>=0?"+":"−") + abs.toFixed(abs < 10 ? 2 : 1) + " bps", cls: x>0?"text-emerald-300":(x<0?"text-rose-300":"") };
+    return { text:(x>=0?"+":"−")+abs.toFixed(abs<10?2:1)+" bps", cls:x>0?"text-emerald-300":(x<0?"text-rose-300":"") };
   }
-  function fmtFunding(rate) {
+  function fmtFunding(rate){
     if (!Number.isFinite(rate)) return "—";
     const p = rate * 100;
     return (p>=0?"":"−") + Math.abs(p).toFixed(Math.abs(p) < 0.01 ? 4 : 3) + "%";
   }
-  function fmtIntervalH(h) {
+  function fmtIntervalH(h){
     if (!Number.isFinite(h) || h<=0) return "—";
     return h.toFixed(h < 10 ? 2 : 1) + "h";
   }
-  function aprFromRate(ratePerWindow, intervalH) {
-    if (!Number.isFinite(ratePerWindow) || !Number.isFinite(intervalH) || intervalH<=0) return "—";
+  function aprFromRate(ratePerWindow, intervalH){
+    if (!Number.isFinite(ratePerWindow) || !Number.isFinite(intervalH) || intervalH<=0) return NaN;
     const windowsPerYear = (365*24)/intervalH;
-    const apr = ratePerWindow * windowsPerYear * 100;
+    return ratePerWindow * windowsPerYear * 100;
+  }
+  function fmtApr(ratePerWindow, intervalH){
+    const apr = aprFromRate(ratePerWindow, intervalH);
+    if (!Number.isFinite(apr)) return "—";
     return (apr>=0?"":"−") + Math.abs(apr).toFixed(Math.abs(apr) < 1 ? 3 : 2) + "%";
   }
-  function money(x) {
+  function money(x){
     if (!Number.isFinite(x)) return "—";
-    return (x>=0?"":"−") + "$" + Math.abs(x).toLocaleString(undefined, { maximumFractionDigits: 2 });
+    return (x>=0?"":"−") + "$" + Math.abs(x).toLocaleString(undefined,{ maximumFractionDigits:2 });
   }
 
-  async function fetchJson(url, options) {
+  async function fetchJson(url, options){
     const r = await fetch(PROXY_BASE + encodeURIComponent(url), { cache:"no-store", ...(options||{}) });
     if (!r.ok) throw new Error(String(r.status));
     return r.json();
   }
 
-  // ===== Local storage: 24h High spread =====
-  let highStore = {}; // { [coin]: [{m, s}] }
+  // Heatmap color (computed inline; does not change data)
+  function heatColor(ratePerInterval){
+    if (!Number.isFinite(ratePerInterval)) return "rgba(255,255,255,0.03)";
+    const max = 0.002; // clamp for visuals only
+    const v = Math.max(-max, Math.min(max, ratePerInterval));
+    const t = (v + max) / (2*max);
 
-  function loadHighStore() {
-    try { highStore = JSON.parse(localStorage.getItem(HIGH_STORE_KEY) || "{}"); } catch { highStore = {}; }
+    const lerp = (a,b,u)=> Math.round(a + (b-a)*u);
+    const green = {r:0,g:255,b:157};
+    const mid = {r:99,g:102,b:241};
+    const red = {r:244,g:63,b:94};
+
+    let c;
+    if (t < 0.5) {
+      const u = t/0.5;
+      c = { r: lerp(green.r, mid.r, u), g: lerp(green.g, mid.g, u), b: lerp(green.b, mid.b, u) };
+    } else {
+      const u = (t-0.5)/0.5;
+      c = { r: lerp(mid.r, red.r, u), g: lerp(mid.g, red.g, u), b: lerp(mid.b, red.b, u) };
+    }
+    return `rgba(${c.r},${c.g},${c.b},0.22)`;
   }
-  function saveHighStore() {
-    try { localStorage.setItem(HIGH_STORE_KEY, JSON.stringify(highStore)); } catch {}
-  }
-  function pruneHighStore() {
+
+  // ===========================
+  // 24H HIGH STORAGE
+  // ===========================
+  let highStore = {};
+  function loadHighStore(){ try{ highStore = JSON.parse(localStorage.getItem(HIGH_STORE_KEY) || "{}"); }catch{ highStore = {}; } }
+  function saveHighStore(){ try{ localStorage.setItem(HIGH_STORE_KEY, JSON.stringify(highStore)); }catch{} }
+  function pruneHighStore(){
     const cutoff = nowMinuteEpoch() - HIGH_WINDOW_MINUTES;
-    for (const c of Object.keys(highStore)) {
+    for (const c of Object.keys(highStore)){
       const arr = Array.isArray(highStore[c]) ? highStore[c] : [];
       highStore[c] = arr.filter(x => x && Number.isFinite(x.m) && x.m >= cutoff && Number.isFinite(x.s));
-      if (highStore[c].length === 0) delete highStore[c];
+      if (!highStore[c].length) delete highStore[c];
     }
   }
-  function updateHigh(coin, spreadAbsBps) {
+  function updateHigh(coin, spreadAbsBps){
     if (!Number.isFinite(spreadAbsBps)) return;
     const m = nowMinuteEpoch();
     if (!Array.isArray(highStore[coin])) highStore[coin] = [];
     const arr = highStore[coin];
-    const last = arr.length ? arr[arr.length - 1] : null;
-    if (last && last.m === m) {
+    const last = arr.length ? arr[arr.length-1] : null;
+    if (last && last.m === m){
       if (spreadAbsBps > last.s) last.s = spreadAbsBps;
     } else {
       arr.push({ m, s: spreadAbsBps });
@@ -814,7 +846,7 @@
     const cutoff = m - HIGH_WINDOW_MINUTES;
     while (arr.length && arr[0].m < cutoff) arr.shift();
   }
-  function get24hHigh(coin) {
+  function get24hHigh(coin){
     const arr = highStore[coin];
     if (!Array.isArray(arr) || !arr.length) return null;
     let best = arr[0];
@@ -822,113 +854,89 @@
     return best;
   }
 
-  // ===== Daily Insights store =====
-  // Tracks best observed spread arb + best observed funding arb over last 24h (browser-observed).
-  let dailyStore = { spread: {}, funding: {} };
-
-  function loadDailyStore() {
-    try {
+  // ===========================
+  // DAILY STORE (unchanged)
+  // ===========================
+  let dailyStore = { spread:{}, funding:{} };
+  function loadDailyStore(){
+    try{
       dailyStore = JSON.parse(localStorage.getItem(DAILY_STORE_KEY) || '{"spread":{},"funding":{}}');
       if (!dailyStore.spread) dailyStore.spread = {};
       if (!dailyStore.funding) dailyStore.funding = {};
-    } catch {
-      dailyStore = { spread: {}, funding: {} };
+    }catch{
+      dailyStore = { spread:{}, funding:{} };
     }
   }
-  function saveDailyStore() {
-    try { localStorage.setItem(DAILY_STORE_KEY, JSON.stringify(dailyStore)); } catch {}
-  }
-  function pruneDailyStore() {
+  function saveDailyStore(){ try{ localStorage.setItem(DAILY_STORE_KEY, JSON.stringify(dailyStore)); }catch{} }
+  function pruneDailyStore(){
     const cutoff = nowMinuteEpoch() - DAILY_WINDOW_MINUTES;
-
-    for (const coin of Object.keys(dailyStore.spread || {})) {
+    for (const coin of Object.keys(dailyStore.spread || {})){
       const arr = Array.isArray(dailyStore.spread[coin]) ? dailyStore.spread[coin] : [];
       dailyStore.spread[coin] = arr.filter(x => x && Number.isFinite(x.m) && x.m >= cutoff && Number.isFinite(x.bps));
       if (!dailyStore.spread[coin].length) delete dailyStore.spread[coin];
     }
-
-    for (const coin of Object.keys(dailyStore.funding || {})) {
+    for (const coin of Object.keys(dailyStore.funding || {})){
       const arr = Array.isArray(dailyStore.funding[coin]) ? dailyStore.funding[coin] : [];
       dailyStore.funding[coin] = arr.filter(x => x && Number.isFinite(x.m) && x.m >= cutoff && Number.isFinite(x.apr));
       if (!dailyStore.funding[coin].length) delete dailyStore.funding[coin];
     }
   }
-
-  function updateDailySpread(coin, spreadBpsAbs, buyEx, sellEx) {
+  function updateDailySpread(coin, spreadBpsAbs, buyEx, sellEx){
     if (!Number.isFinite(spreadBpsAbs)) return;
     const m = nowMinuteEpoch();
     if (!Array.isArray(dailyStore.spread[coin])) dailyStore.spread[coin] = [];
     const arr = dailyStore.spread[coin];
-    const last = arr.length ? arr[arr.length - 1] : null;
-
-    if (last && last.m === m) {
-      if (spreadBpsAbs > last.bps) {
-        last.bps = spreadBpsAbs;
-        last.buyEx = buyEx;
-        last.sellEx = sellEx;
-      }
+    const last = arr.length ? arr[arr.length-1] : null;
+    if (last && last.m === m){
+      if (spreadBpsAbs > last.bps){ last.bps = spreadBpsAbs; last.buyEx = buyEx; last.sellEx = sellEx; }
     } else {
       arr.push({ m, bps: spreadBpsAbs, buyEx, sellEx });
     }
-
     const cutoff = m - DAILY_WINDOW_MINUTES;
     while (arr.length && arr[0].m < cutoff) arr.shift();
   }
-
-  function updateDailyFunding(coin, netAprPct, longEx, shortEx) {
+  function updateDailyFunding(coin, netAprPct, longEx, shortEx){
     if (!Number.isFinite(netAprPct)) return;
     const m = nowMinuteEpoch();
     if (!Array.isArray(dailyStore.funding[coin])) dailyStore.funding[coin] = [];
     const arr = dailyStore.funding[coin];
-    const last = arr.length ? arr[arr.length - 1] : null;
-
-    if (last && last.m === m) {
-      if (netAprPct > last.apr) {
-        last.apr = netAprPct;
-        last.longEx = longEx;
-        last.shortEx = shortEx;
-      }
+    const last = arr.length ? arr[arr.length-1] : null;
+    if (last && last.m === m){
+      if (netAprPct > last.apr){ last.apr = netAprPct; last.longEx = longEx; last.shortEx = shortEx; }
     } else {
       arr.push({ m, apr: netAprPct, longEx, shortEx });
     }
-
     const cutoff = m - DAILY_WINDOW_MINUTES;
     while (arr.length && arr[0].m < cutoff) arr.shift();
   }
-
-  function bestSpread24h() {
+  function bestSpread24h(){
     pruneDailyStore();
     let best = null;
-    for (const [coin, arr] of Object.entries(dailyStore.spread || {})) {
-      for (const x of (arr || [])) {
+    for (const [coin, arr] of Object.entries(dailyStore.spread || {})){
+      for (const x of (arr || [])){
         if (!x || !Number.isFinite(x.bps)) continue;
         if (!best || x.bps > best.bps) best = { coin, ...x };
       }
     }
     return best;
   }
-
-  function bestFunding24h() {
+  function bestFunding24h(){
     pruneDailyStore();
     let best = null;
-    for (const [coin, arr] of Object.entries(dailyStore.funding || {})) {
-      for (const x of (arr || [])) {
+    for (const [coin, arr] of Object.entries(dailyStore.funding || {})){
+      for (const x of (arr || [])){
         if (!x || !Number.isFinite(x.apr)) continue;
         if (!best || x.apr > best.apr) best = { coin, ...x };
       }
     }
     return best;
   }
-
-  function renderDailyInsights() {
-    if (!dailyRows || !dailyStatus) return;
-
+  function renderDailyInsights(){
     const s = bestSpread24h();
     const f = bestFunding24h();
-
     const rows = [];
 
-    if (s) {
+    if (s){
       rows.push(`
         <tr class="${(s.bps >= BPS_HIGHLIGHT) ? "hot-row" : ""}">
           <td class="py-3 px-3 font-semibold">Spread convergence</td>
@@ -950,7 +958,7 @@
       `);
     }
 
-    if (f) {
+    if (f){
       rows.push(`
         <tr>
           <td class="py-3 px-3 font-semibold">Funding rate arb</td>
@@ -976,15 +984,18 @@
     dailyStatus.textContent = `${new Date().toLocaleTimeString()} · last 24h`;
   }
 
-  // ===== Data caches =====
-  const prices = {};   // prices[exchange][coin] = number
-  const funding = {};  // funding[exchange][coin] = { rate, intervalH }
+  // ===========================
+  // DATA CACHES
+  // ===========================
+  const prices = {};   // prices[ex][coin] = number
+  const funding = {};  // funding[ex][coin] = { rate, intervalH }
 
-  // ===== Leaderboard cache =====
-  let lastSpreadSnapshot = []; // [{coin, spreadBps, buyEx, sellEx}]
+  let lastSpreadSnapshot = [];
 
-  // ===== Fetchers (same as before) =====
-  async function loadHyperliquid() {
+  // ===========================
+  // FETCHERS
+  // ===========================
+  async function loadHyperliquid(){
     const j = await fetchJson("https://api.hyperliquid.xyz/info", {
       method:"POST",
       headers:{ "Content-Type":"application/json" },
@@ -994,7 +1005,7 @@
     const map = new Map();
     meta.universe.forEach((u,i) => map.set(u.name, ctxs[i] || {}));
 
-    for (const coin of COINS) {
+    for (const coin of COINS){
       const sym = MAP.hyper[coin];
       if (!sym) continue;
       const c = map.get(sym);
@@ -1003,11 +1014,11 @@
       if (!prices.hyper) prices.hyper = {};
       if (!funding.hyper) funding.hyper = {};
       if (Number.isFinite(px)) prices.hyper[coin] = px;
-      if (Number.isFinite(fr)) funding.hyper[coin] = { rate: fr, intervalH: 1 }; // hourly
+      if (Number.isFinite(fr)) funding.hyper[coin] = { rate: fr, intervalH: 1 };
     }
   }
 
-  async function loadAster() {
+  async function loadAster(){
     const [p, prem] = await Promise.all([
       fetchJson("https://fapi.asterdex.com/fapi/v1/ticker/price"),
       fetchJson("https://fapi.asterdex.com/fapi/v1/premiumIndex")
@@ -1019,7 +1030,7 @@
     const fMap = new Map();
     if (Array.isArray(prem)) for (const x of prem) fMap.set(x.symbol, x);
 
-    for (const coin of COINS) {
+    for (const coin of COINS){
       const sym = MAP.aster[coin];
       if (!sym) continue;
 
@@ -1040,11 +1051,11 @@
     }
   }
 
-  async function loadOKX() {
+  async function loadOKX(){
     const tickTasks = [];
     const fundTasks = [];
 
-    for (const coin of COINS) {
+    for (const coin of COINS){
       const instId = MAP.okx[coin];
       if (!instId) continue;
 
@@ -1073,12 +1084,13 @@
     await Promise.allSettled([...tickTasks, ...fundTasks]);
   }
 
-  async function loadKrakenFutures() {
+  async function loadKrakenFutures(){
     const j = await fetchJson("https://futures.kraken.com/derivatives/api/v3/tickers");
     const arr = j?.tickers || j?.result || j;
+
     const tMap = new Map();
-    if (Array.isArray(arr)) {
-      for (const t of arr) {
+    if (Array.isArray(arr)){
+      for (const t of arr){
         const sym = t?.symbol || t?.instrument || t?.product_id;
         if (sym) tMap.set(sym, t);
       }
@@ -1087,7 +1099,7 @@
     if (!prices.kraken) prices.kraken = {};
     if (!funding.kraken) funding.kraken = {};
 
-    for (const coin of COINS) {
+    for (const coin of COINS){
       const sym = MAP.kraken[coin];
       const t = tMap.get(sym);
       if (!t) continue;
@@ -1100,8 +1112,10 @@
     }
   }
 
-  // ===== Build table headers =====
-  function buildTables() {
+  // ===========================
+  // TABLE HEADERS
+  // ===========================
+  function buildTables(){
     const exList = EXCHANGES.filter(e => selectedEx.has(e.key));
 
     pricesHead.innerHTML = `
@@ -1125,8 +1139,10 @@
     `;
   }
 
-  // ===== Render Prices =====
-  function renderPrices() {
+  // ===========================
+  // RENDER PRICES
+  // ===========================
+  function renderPrices(){
     pruneHighStore();
     pruneDailyStore();
 
@@ -1135,29 +1151,25 @@
     const spreadSnap = [];
 
     priceRows.innerHTML = coinsList.map(coin => {
-      const pxs = []; // [{ex, p}]
+      const pxs = [];
       const cells = exList.map(e => {
         const p = prices?.[e.key]?.[coin];
-        if (Number.isFinite(p)) pxs.push({ ex: e.key, p });
+        if (Number.isFinite(p)) pxs.push({ ex:e.key, p });
         return `<td class="py-3 px-3 text-right font-monoNums">${fmtUsd(p)}</td>`;
       }).join("");
 
-      let spreadBps = null;
-      let buyEx = null;
-      let sellEx = null;
-
-      if (pxs.length >= 2) {
-        pxs.sort((a,b) => a.p - b.p);
-        const min = pxs[0];
-        const max = pxs[pxs.length - 1];
-        if (min.p > 0) {
+      let spreadBps = null, buyEx = null, sellEx = null;
+      if (pxs.length >= 2){
+        pxs.sort((a,b)=>a.p-b.p);
+        const min = pxs[0], max = pxs[pxs.length-1];
+        if (min.p > 0){
           spreadBps = 10000 * (max.p - min.p) / min.p;
           buyEx = min.ex;
           sellEx = max.ex;
         }
       }
 
-      if (Number.isFinite(spreadBps)) {
+      if (Number.isFinite(spreadBps)){
         updateHigh(coin, spreadBps);
         updateDailySpread(coin, spreadBps, buyEx, sellEx);
         spreadSnap.push({ coin, spreadBps, buyEx, sellEx });
@@ -1165,16 +1177,15 @@
 
       const hi = get24hHigh(coin);
       const hot = Number.isFinite(spreadBps) && spreadBps >= BPS_HIGHLIGHT;
-      const spreadTxt = Number.isFinite(spreadBps) ? fmtBpsAbs(spreadBps) : "—";
-      const highTxt = hi ? fmtBpsAbs(hi.s) : "—";
-      const title = hi ? `title="Observed at: ${new Date(hi.m*60000).toLocaleString()}"` : "";
 
       return `
         <tr class="${hot ? "hot-row" : ""}">
           <td class="py-3 px-3 font-monoNums">${coin}</td>
           ${cells}
-          <td class="py-3 px-3 text-right font-monoNums">${spreadTxt}</td>
-          <td class="py-3 px-3 text-right font-monoNums" ${title}>${highTxt}</td>
+          <td class="py-3 px-3 text-right font-monoNums">${Number.isFinite(spreadBps) ? fmtBpsAbs(spreadBps) : "—"}</td>
+          <td class="py-3 px-3 text-right font-monoNums" ${hi ? `title="Observed at: ${new Date(hi.m*60000).toLocaleString()}"` : ""}>
+            ${hi ? fmtBpsAbs(hi.s) : "—"}
+          </td>
         </tr>
       `;
     }).join("");
@@ -1182,16 +1193,15 @@
     saveHighStore();
     saveDailyStore();
 
-    lastSpreadSnapshot = spreadSnap
-      .slice()
-      .sort((a,b) => (b.spreadBps ?? -Infinity) - (a.spreadBps ?? -Infinity));
-
+    lastSpreadSnapshot = spreadSnap.slice().sort((a,b)=>(b.spreadBps ?? -Infinity)-(a.spreadBps ?? -Infinity));
     renderLeaderboard();
     renderDailyInsights();
   }
 
-  // ===== Render Funding =====
-  function renderFunding() {
+  // ===========================
+  // RENDER FUNDING TABLE
+  // ===========================
+  function renderFunding(){
     const exList = EXCHANGES.filter(e => selectedEx.has(e.key));
     const coinsList = COINS.filter(c => selectedCoins.has(c));
 
@@ -1203,7 +1213,7 @@
         return `
           <td class="py-3 px-3 text-right font-monoNums">${fmtFunding(r)}</td>
           <td class="py-3 px-3 text-right font-monoNums">${fmtIntervalH(ih)}</td>
-          <td class="py-3 px-3 text-right font-monoNums">${aprFromRate(r, ih)}</td>
+          <td class="py-3 px-3 text-right font-monoNums">${fmtApr(r, ih)}</td>
         `;
       }).join("");
 
@@ -1211,12 +1221,64 @@
     }).join("");
   }
 
-  // ===== Leaderboard =====
-  function renderLeaderboard() {
+  // ===========================
+  // FUNDING HEATMAP (NEW)
+  // ===========================
+  function renderFundingHeatmap(){
+    const exList = EXCHANGES.filter(e => selectedEx.has(e.key));
+    const coinsList = COINS.filter(c => selectedCoins.has(c));
+
+    // Header row
+    const head = `
+      <div class="grid" style="grid-template-columns: 140px repeat(${exList.length}, minmax(140px, 1fr)); gap: 10px;">
+        <div class="text-xs uppercase tracking-wider text-gray-300 px-2 py-2">Asset</div>
+        ${exList.map(e => `<div class="text-xs uppercase tracking-wider text-gray-300 px-2 py-2 text-center">${e.name}</div>`).join("")}
+      </div>
+    `;
+
+    const rows = coinsList.map(coin => {
+      const cells = exList.map(e => {
+        const rec = funding?.[e.key]?.[coin];
+        const r = Number(rec?.rate);
+        const ih = Number(rec?.intervalH);
+        const apr = aprFromRate(r, ih);
+
+        const bg = heatColor(r);
+        const title = Number.isFinite(r)
+          ? `${coin} @ ${e.name}\nFunding/interval: ${(r*100).toFixed(6)}%\nInterval: ${Number.isFinite(ih)?ih.toFixed(2):"?"}h\n365-day: ${Number.isFinite(apr)?apr.toFixed(4):"?"}%`
+          : `${coin} @ ${e.name}\nNo funding data`;
+
+        const label = Number.isFinite(r) ? fmtFunding(r) : "—";
+        const sub = Number.isFinite(ih) ? `${fmtIntervalH(ih)} · ${Number.isFinite(apr)?(apr>=0?"":"−")+Math.abs(apr).toFixed(2)+"%":"—"}` : "—";
+
+        return `
+          <div class="hm-cell rounded-2xl p-3 text-center" style="background:${bg}" title="${title.replace(/"/g,"&quot;")}">
+            <div class="font-monoNums text-sm">${label}</div>
+            <div class="text-[11px] text-gray-300 mt-1">${sub}</div>
+          </div>
+        `;
+      }).join("");
+
+      return `
+        <div class="grid items-stretch mt-2" style="grid-template-columns: 140px repeat(${exList.length}, minmax(140px, 1fr)); gap: 10px;">
+          <div class="glass rounded-2xl px-3 py-3 font-monoNums flex items-center">${coin}</div>
+          ${cells}
+        </div>
+      `;
+    }).join("");
+
+    heatmapGrid.innerHTML = head + rows;
+    heatmapStatus.textContent = `${new Date().toLocaleTimeString()}`;
+  }
+
+  // ===========================
+  // LEADERBOARD
+  // ===========================
+  function renderLeaderboard(){
     const now = new Date().toLocaleTimeString();
     leaderStatus.textContent = lastSpreadSnapshot.length ? now : "Waiting…";
 
-    if (!lastSpreadSnapshot.length) {
+    if (!lastSpreadSnapshot.length){
       leaderRows.innerHTML = `<tr><td colspan="5" class="py-4 px-3 text-xs text-gray-400">Waiting for first price refresh…</td></tr>`;
       return;
     }
@@ -1237,35 +1299,37 @@
     }).join("");
   }
 
-  // ===== Dropdowns =====
-  function refreshAllDropdowns() {
+  // ===========================
+  // DROPDOWNS
+  // ===========================
+  function refreshAllDropdowns(){
     const coinsList = COINS.filter(c => selectedCoins.has(c));
     const exList = EXCHANGES.filter(e => selectedEx.has(e.key));
 
-    // Spread convergence calc
     arbAsset.innerHTML = coinsList.map(c => `<option value="${c}">${c}</option>`).join("");
     arbBuyEx.innerHTML = exList.map(e => `<option value="${e.key}">${e.name}</option>`).join("");
     arbSellEx.innerHTML = exList.map(e => `<option value="${e.key}">${e.name}</option>`).join("");
 
-    // Funding arb calc
     faAsset.innerHTML = coinsList.map(c => `<option value="${c}">${c}</option>`).join("");
     faLongEx.innerHTML = exList.map(e => `<option value="${e.key}">${e.name}</option>`).join("");
     faShortEx.innerHTML = exList.map(e => `<option value="${e.key}">${e.name}</option>`).join("");
 
-    if (coinsList.length) {
+    if (coinsList.length){
       if (!coinsList.includes(arbAsset.value)) arbAsset.value = coinsList[0];
       if (!coinsList.includes(faAsset.value)) faAsset.value = coinsList[0];
     }
-    if (exList.length >= 2) {
-      arbBuyEx.value = exList[0].key;
-      arbSellEx.value = exList[1].key;
-      faLongEx.value = exList[0].key;
-      faShortEx.value = exList[1].key;
+    if (exList.length >= 2){
+      if (!selectedEx.has(arbBuyEx.value)) arbBuyEx.value = exList[0].key;
+      if (!selectedEx.has(arbSellEx.value)) arbSellEx.value = exList[1].key;
+      if (!selectedEx.has(faLongEx.value)) faLongEx.value = exList[0].key;
+      if (!selectedEx.has(faShortEx.value)) faShortEx.value = exList[1].key;
     }
   }
 
-  // ===== Spread convergence calculator (same logic as earlier arb) =====
-  function renderArb() {
+  // ===========================
+  // SPREAD CONVERGENCE CALC
+  // ===========================
+  function renderArb(){
     const coin = arbAsset.value;
     const buy = arbBuyEx.value;
     const sell = arbSellEx.value;
@@ -1274,10 +1338,10 @@
     const sellPx = Number(prices?.[sell]?.[coin]);
 
     let curBps = null;
-    if (Number.isFinite(buyPx) && Number.isFinite(sellPx) && buyPx > 0) {
+    if (Number.isFinite(buyPx) && Number.isFinite(sellPx) && buyPx > 0){
       curBps = 10000 * (sellPx - buyPx) / buyPx;
     }
-    const bpsCell = Number.isFinite(curBps) ? fmtBpsSigned(curBps) : { text: "—", cls: "" };
+    const bpsCell = Number.isFinite(curBps) ? fmtBpsSigned(curBps) : { text:"—", cls:"" };
     arbCurBps.textContent = bpsCell.text;
     arbCurBps.className = "mt-1 font-monoNums text-lg " + (bpsCell.cls || "");
 
@@ -1295,8 +1359,10 @@
     arbNet.className = "mt-1 font-monoNums text-lg " + (net >= 0 ? "text-emerald-300" : "text-rose-300");
   }
 
-  // ===== Funding arb calculator (restored, same logic as earlier version) =====
-  function renderFundingArb() {
+  // ===========================
+  // FUNDING ARB CALC
+  // ===========================
+  function renderFundingArb(){
     const coin = faAsset.value;
     const longEx = faLongEx.value;
     const shortEx = faShortEx.value;
@@ -1324,14 +1390,13 @@
     faShortInt.textContent = fmtIntervalH(shortInt);
     faShortWin.textContent = (shortWin === null) ? "—" : shortWin.toFixed(2);
 
-    if (longEx === shortEx) {
+    if (longEx === shortEx){
       faFundingPnl.textContent = "Choose different venues";
       faNet.textContent = "—";
       faNet.className = "mt-1 font-monoNums text-lg";
       return;
     }
-
-    if (!Number.isFinite(longRate) || !Number.isFinite(shortRate) || !Number.isFinite(longWin) || !Number.isFinite(shortWin)) {
+    if (!Number.isFinite(longRate) || !Number.isFinite(shortRate) || !Number.isFinite(longWin) || !Number.isFinite(shortWin)){
       faFundingPnl.textContent = "Waiting for funding…";
       faNet.textContent = "—";
       faNet.className = "mt-1 font-monoNums text-lg";
@@ -1351,31 +1416,32 @@
     faNet.className = "mt-1 font-monoNums text-lg " + (net >= 0 ? "text-emerald-300" : "text-rose-300");
   }
 
-  // ===== Update Daily funding best pair from current snapshot =====
-  function updateDailyFundingFromCurrent() {
+  // ===========================
+  // DAILY FUNDING BEST (unchanged)
+  // ===========================
+  function updateDailyFundingFromCurrent(){
     const exList = EXCHANGES.filter(e => selectedEx.has(e.key));
     const coinsList = COINS.filter(c => selectedCoins.has(c));
 
-    for (const coin of coinsList) {
-      const perHour = []; // {ex, rph}
-      for (const e of exList) {
+    for (const coin of coinsList){
+      const perHour = [];
+      for (const e of exList){
         const rec = funding?.[e.key]?.[coin];
         const r = Number(rec?.rate);
         const ih = Number(rec?.intervalH);
         if (!Number.isFinite(r) || !Number.isFinite(ih) || ih <= 0) continue;
-        perHour.push({ ex: e.key, rph: r / ih });
+        perHour.push({ ex:e.key, rph:r/ih });
       }
       if (perHour.length < 2) continue;
 
-      // Best carry: long the most negative rph, short the most positive rph
-      perHour.sort((a,b) => a.rph - b.rph);
+      perHour.sort((a,b)=>a.rph-b.rph);
       const bestLong = perHour[0];
-      const bestShort = perHour[perHour.length - 1];
+      const bestShort = perHour[perHour.length-1];
 
       const netPerHour = (-bestLong.rph) + (bestShort.rph);
       const netAprPct = netPerHour * 24 * 365 * 100;
 
-      if (Number.isFinite(netAprPct) && netAprPct > 0) {
+      if (Number.isFinite(netAprPct) && netAprPct > 0){
         updateDailyFunding(coin, netAprPct, bestLong.ex, bestShort.ex);
       }
     }
@@ -1384,8 +1450,10 @@
     renderDailyInsights();
   }
 
-  // ===== Refresh loops =====
-  async function refreshPrices() {
+  // ===========================
+  // REFRESH LOOPS
+  // ===========================
+  async function refreshPrices(){
     const start = Date.now();
     priceStatus.textContent = "Updating…";
 
@@ -1410,7 +1478,7 @@
     liveStatusText.style.color = ok ? "var(--neon)" : "#fca5a5";
   }
 
-  async function refreshFunding() {
+  async function refreshFunding(){
     const start = Date.now();
     fundingStatus.textContent = "Updating…";
 
@@ -1427,17 +1495,21 @@
 
     renderFunding();
     renderFundingArb();
+    renderFundingHeatmap();        // ✅ keep heatmap fresh
     updateDailyFundingFromCurrent();
 
     const ms = Date.now() - start;
     fundingStatus.textContent = `${new Date().toLocaleTimeString()} · ${ms}ms`;
+    heatmapStatus.textContent = `${new Date().toLocaleTimeString()} · ${ms}ms`;
 
     liveStatusText.textContent = ok ? "LIVE" : "DEGRADED";
     liveStatusText.style.color = ok ? "var(--neon)" : "#fca5a5";
   }
 
-  // ===== Init =====
-  function init() {
+  // ===========================
+  // INIT
+  // ===========================
+  function init(){
     initTabs();
 
     loadFilters();
@@ -1452,7 +1524,6 @@
     buildTables();
     refreshAllDropdowns();
 
-    // events
     arbRecalc.onclick = renderArb;
     faRecalc.onclick = renderFundingArb;
 
@@ -1472,11 +1543,8 @@
       faCostsBps.addEventListener(ev, renderFundingArb);
     });
 
-    // first fetch
     refreshPrices();
     refreshFunding();
-    renderLeaderboard();
-    renderDailyInsights();
 
     setInterval(refreshPrices, PRICES_REFRESH_MS);
     setInterval(refreshFunding, FUNDING_REFRESH_MS);
