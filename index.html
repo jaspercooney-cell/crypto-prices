@@ -173,6 +173,18 @@
 
     <section class="glass rounded-3xl p-5 sm:p-6">
       <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+  <div class="glass rounded-2xl p-1 flex items-center gap-1">
+    <button id="hmBtn1h" class="px-3 py-1.5 rounded-xl text-xs font-semibold tab-pill active">1h view</button>
+    <button id="hmBtn8h" class="px-3 py-1.5 rounded-xl text-xs font-semibold tab-pill">8h view</button>
+  </div>
+
+  <div class="text-xs text-gray-200 glass rounded-2xl px-3 py-2">
+    <span class="text-gray-400">Updated:</span>
+    <span id="heatmapStatus" class="font-monoNums">Loading…</span>
+  </div>
+</div>
+
         <div>
           <div class="font-orbitron text-sm tracking-[0.18em] text-gray-100">FILTERS</div>
           <div class="text-xs text-gray-400 mt-1" id="filterStatus">Choose exchanges + coins, then “Apply filters”.</div>
