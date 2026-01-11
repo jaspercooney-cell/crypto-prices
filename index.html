@@ -1,3 +1,5 @@
+
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -1084,50 +1086,74 @@
     await Promise.allSettled([...tickTasks, ...fundTasks]);
   }
 
-  async function loadKrakenFutures(){
-    const j = await fetchJson("https://futures.kraken.com/derivatives/api/v3/tickers");
-    const arr = j?.tickers || j?.result || j;
+ async function loadKrakenFutures(){
+  const j = await fetchJson("https://futures.kraken.com/derivatives/api/v3/tickers");
+  const arr = j?.tickers || j?.result || j;
 
-    const tMap = new Map();
-    if (Array.isArray(arr)){
-      for (const t of arr){
-        const sym = t?.symbol || t?.instrument || t?.product_id;
-        if (sym) tMap.set(sym, t);
-      }
-    }
-
-    if (!prices.kraken) prices.kraken = {};
-    if (!funding.kraken) funding.kraken = {};
-
-    for (const coin of COINS){
-      const sym = MAP.kraken[coin];
-      const t = tMap.get(sym);
-      if (!t) continue;
-
-      const px = Number(t?.markPrice ?? t?.mark_price ?? t?.last ?? t?.lastPrice ?? t?.last_price);
-      if (Number.isFinite(px)) prices.kraken[coin] = px;
-
- // Kraken: use relative_funding_rate (best proxy for "funding % per hour")
-const fr =
-  Number(
-    t?.relative_funding_rate ??
-    t?.relativeFundingRate ??
-    t?.relative_funding_rate_prediction ??
-    t?.relativeFundingRatePrediction ??
-    // fallback only if relative_* not present:
-    t?.funding_rate ??
-    t?.fundingRate ??
-    t?.funding_rate_prediction ??
-    t?.fundingRatePrediction
-  );
-
-if (!funding.kraken) funding.kraken = {};
-
-// Kraken multi-collateral perps are realized hourly in many cases; keep 1h.
-if (Number.isFinite(fr)) funding.kraken[coin] = { rate: fr, intervalH: 1 };
-
+  const tMap = new Map();
+  if (Array.isArray(arr)){
+    for (const t of arr){
+      const sym = t?.symbol || t?.instrument || t?.product_id;
+      if (sym) tMap.set(sym, t);
     }
   }
+
+  if (!prices.kraken) prices.kraken = {};
+  if (!funding.kraken) funding.kraken = {};
+
+  // Kraken perps: funding is effectively an hourly rate (realised hourly)
+  // We'll display it as "per 1 hour" on the heatmap and tables.
+  const KRAKEN_INTERVAL_H = 1;
+
+  // Normalizer: Kraken payloads can expose funding fields in different scales.
+  // We want a DECIMAL rate-per-hour (e.g. 0.000003 = 0.0003% per hour).
+  function normalizeKrakenHourlyRate(raw){
+    let r = Number(raw);
+    if (!Number.isFinite(r)) return NaN;
+
+    // If someone accidentally gives percentage points (e.g. 0.59 = 59%),
+    // shrink to a plausible decimal-per-hour.
+    //
+    // Typical per-hour funding is small. Historic Crypto Facilities docs show caps like 0.25%/hr in examples. :contentReference[oaicite:2]{index=2}
+    // We'll treat anything above 0.5%/hr (0.005 decimal) as "wrong scale" and rescale down.
+    //
+    // Do at most 2 rescales to avoid over-correcting.
+    for (let i=0; i<2; i++){
+      if (Math.abs(r) > 0.005) r = r / 100;
+    }
+
+    return r;
+  }
+
+  for (const coin of COINS){
+    const sym = MAP.kraken[coin];
+    const t = tMap.get(sym);
+    if (!t) continue;
+
+    // Price: Kraken tickers usually provide markPrice
+    const px = Number(
+      t?.markPrice ?? t?.mark_price ?? t?.last ?? t?.lastPrice ?? t?.last_price
+    );
+    if (Number.isFinite(px)) prices.kraken[coin] = px;
+
+    // Funding: prefer relative_funding_rate (current), then prediction, then other fields as fallback
+    const rawFunding =
+      t?.relative_funding_rate ??
+      t?.relativeFundingRate ??
+      t?.relative_funding_rate_prediction ??
+      t?.relativeFundingRatePrediction ??
+      t?.funding_rate ??
+      t?.fundingRate ??
+      t?.funding_rate_prediction ??
+      t?.fundingRatePrediction;
+
+    const fr = normalizeKrakenHourlyRate(rawFunding);
+
+    if (Number.isFinite(fr)){
+      funding.kraken[coin] = { rate: fr, intervalH: KRAKEN_INTERVAL_H };
+    }
+  }
+}
 
   // ===========================
   // TABLE HEADERS
