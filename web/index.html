@@ -1,6 +1,3 @@
-
-
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -8,10 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>PERP INSIGHTS — Crypto Perp Dashboard</title>
 
-  <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Orbitron:wght@600;700;800&display=swap" rel="stylesheet">
@@ -141,7 +136,7 @@
       </div>
       <div>
         <div class="font-orbitron text-lg sm:text-xl tracking-[0.22em] text-white">PERP INSIGHTS</div>
-        <div class="text-xs text-gray-400">Cyber-finance dashboard · Live perp pricing + funding</div>
+        <div class="text-xs text-gray-400">Live perp pricing + funding</div>
       </div>
     </div>
 
@@ -172,20 +167,9 @@
 <main class="content-pad">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
 
+    <!-- Filters -->
     <section class="glass rounded-3xl p-5 sm:p-6">
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="flex items-center gap-2">
-  <div class="glass rounded-2xl p-1 flex items-center gap-1">
-    <button id="hmBtn1h" class="px-3 py-1.5 rounded-xl text-xs font-semibold tab-pill active">1h view</button>
-    <button id="hmBtn8h" class="px-3 py-1.5 rounded-xl text-xs font-semibold tab-pill">8h view</button>
-  </div>
-
-  <div class="text-xs text-gray-200 glass rounded-2xl px-3 py-2">
-    <span class="text-gray-400">Updated:</span>
-    <span id="heatmapStatus" class="font-monoNums">Loading…</span>
-  </div>
-</div>
-
         <div>
           <div class="font-orbitron text-sm tracking-[0.18em] text-gray-100">FILTERS</div>
           <div class="text-xs text-gray-400 mt-1" id="filterStatus">Choose exchanges + coins, then “Apply filters”.</div>
@@ -223,7 +207,7 @@
       </div>
     </section>
 
-    <!-- PRICES -->
+    <!-- Prices -->
     <section id="tab-prices" class="tab-panel space-y-4">
       <div class="glass rounded-3xl p-5 sm:p-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
@@ -251,15 +235,13 @@
       </div>
     </section>
 
-    <!-- FUNDING -->
+    <!-- Funding table -->
     <section id="tab-funding" class="tab-panel hidden space-y-4">
       <div class="glass rounded-3xl p-5 sm:p-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div class="font-orbitron text-sm tracking-[0.18em] text-gray-100">FUNDING</div>
-            <div class="text-xs text-gray-400 mt-1">
-              365-day = rate_per_window × (365×24 / interval_hours)
-            </div>
+            <div class="text-xs text-gray-400 mt-1">365-day = rate_per_window × (365×24 / interval_hours)</div>
           </div>
           <div class="text-xs text-gray-200 glass rounded-2xl px-3 py-2">
             <span class="text-gray-400">Updated:</span>
@@ -276,22 +258,31 @@
       </div>
     </section>
 
-    <!-- FUNDING HEATMAP -->
+    <!-- Heatmap -->
     <section id="tab-heatmap" class="tab-panel hidden space-y-4">
       <div class="glass rounded-3xl p-5 sm:p-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div class="font-orbitron text-sm tracking-[0.18em] text-gray-100">FUNDING HEATMAP</div>
             <div class="text-xs text-gray-400 mt-1">
-              Colors show funding per interval (red = longs pay, green = shorts pay). Uses your live funding data.
+              Colors show funding per selected window (red = positive, green = negative, purple = near zero).
             </div>
             <div class="text-xs text-gray-500 mt-1">
-              Hover a cell for interval + normalized 365-day rate.
+              Toggle changes display only; underlying funding data stays per-exchange interval.
             </div>
           </div>
-          <div class="text-xs text-gray-200 glass rounded-2xl px-3 py-2">
-            <span class="text-gray-400">Updated:</span>
-            <span id="heatmapStatus" class="font-monoNums">Loading…</span>
+
+          <!-- ✅ Toggle is here -->
+          <div class="flex items-center gap-2">
+            <div class="glass rounded-2xl p-1 flex items-center gap-1">
+              <button id="hmBtn1h" class="tab-pill active px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap">1h view</button>
+              <button id="hmBtn8h" class="tab-pill px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap">8h view</button>
+            </div>
+
+            <div class="text-xs text-gray-200 glass rounded-2xl px-3 py-2">
+              <span class="text-gray-400">Updated:</span>
+              <span id="heatmapStatus" class="font-monoNums">Loading…</span>
+            </div>
           </div>
         </div>
 
@@ -301,15 +292,13 @@
       </div>
     </section>
 
-    <!-- LEADERBOARD -->
+    <!-- Leaderboard -->
     <section id="tab-leaderboard" class="tab-panel hidden space-y-4">
       <div class="glass rounded-3xl p-5 sm:p-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div class="font-orbitron text-sm tracking-[0.18em] text-gray-100">LEADERBOARD</div>
-            <div class="text-xs text-gray-400 mt-1">
-              Ranked by highest spread (bps) across your selected exchanges
-            </div>
+            <div class="text-xs text-gray-400 mt-1">Ranked by highest spread (bps) across your selected exchanges</div>
           </div>
           <div class="text-xs text-gray-200 glass rounded-2xl px-3 py-2">
             <span class="text-gray-400">Snapshot:</span>
@@ -336,15 +325,13 @@
       </div>
     </section>
 
-    <!-- SPREAD CONVERGENCE CALC -->
+    <!-- Spread convergence calculator -->
     <section id="tab-spreadcalc" class="tab-panel hidden space-y-4">
       <div class="glass rounded-3xl p-5 sm:p-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div class="font-orbitron text-sm tracking-[0.18em] text-gray-100">SPREAD CONVERGENCE CALCULATOR</div>
-            <div class="text-xs text-gray-400 mt-1">
-              Uses live prices · Gross ≈ Notional × (Convergence bps / 10,000)
-            </div>
+            <div class="text-xs text-gray-400 mt-1">Uses live prices · Gross ≈ Notional × (Convergence bps / 10,000)</div>
           </div>
         </div>
 
@@ -412,22 +399,20 @@
             </div>
 
             <div class="mt-4 text-xs text-gray-400">
-              Tip: pick the cheapest exchange as Buy and most expensive as Sell for a pure spread convergence arb.
+              Tip: pick the cheapest exchange as Buy and most expensive as Sell.
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- FUNDING ARB CALC -->
+    <!-- Funding arb calculator -->
     <section id="tab-fundarb" class="tab-panel hidden space-y-4">
       <div class="glass rounded-3xl p-5 sm:p-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div class="font-orbitron text-sm tracking-[0.18em] text-gray-100">FUNDING ARB CALCULATOR</div>
-            <div class="text-xs text-gray-400 mt-1">
-              Long one venue, short the other · Uses live funding + each venue interval
-            </div>
+            <div class="text-xs text-gray-400 mt-1">Uses live funding + each venue interval</div>
           </div>
         </div>
 
@@ -512,15 +497,13 @@
       </div>
     </section>
 
-    <!-- DAILY -->
+    <!-- Daily -->
     <section id="tab-daily" class="tab-panel hidden space-y-4">
       <div class="glass rounded-3xl p-5 sm:p-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div class="font-orbitron text-sm tracking-[0.18em] text-gray-100">DAILY INSIGHTS (LAST 24H)</div>
-            <div class="text-xs text-gray-400 mt-1">
-              Best observed opportunities in the last 24 hours (based on what your browser has observed)
-            </div>
+            <div class="text-xs text-gray-400 mt-1">Best observed opportunities in the last 24 hours (browser-observed)</div>
           </div>
           <div class="text-xs text-gray-200 glass rounded-2xl px-3 py-2">
             <span class="text-gray-400">Updated:</span>
@@ -546,13 +529,13 @@
         </div>
 
         <div class="mt-3 text-xs text-gray-500">
-          Note: GitHub Pages is static — “last 24h” uses browser localStorage and only includes data observed while the site is running.
+          GitHub Pages is static — “last 24h” uses browser localStorage and only includes data observed while the site is running.
         </div>
       </div>
     </section>
 
     <footer class="pb-10 text-xs text-gray-500">
-      <div class="text-center">Built with vanilla JS · Tailwind · Glassmorphism · Neon accents</div>
+      <div class="text-center">Built with vanilla JS · Tailwind · Glassmorphism</div>
     </footer>
   </div>
 </main>
@@ -563,9 +546,7 @@
   // ===========================
   const PROXY_BASE = "https://purple-sky-264e.jasper-cooney.workers.dev/?url=";
 
-  // ✅ Glow threshold now 25 bps
   const BPS_HIGHLIGHT = 25;
-
   const PRICES_REFRESH_MS = 3000;
   const FUNDING_REFRESH_MS = 60000;
 
@@ -575,7 +556,9 @@
   const DAILY_STORE_KEY = "perpinsights_daily_insights_v1";
   const DAILY_WINDOW_MINUTES = 24 * 60;
 
-  // Coins you had
+  // ✅ Heatmap toggle window (1h vs 8h)
+  let HEATMAP_WINDOW_H = 1;
+
   const COINS = ["BTC","ETH","SOL","XRP","ZEC","DOGE","ADA","LINK","AVAX","LTC","BCH","DOT"];
 
   const EXCHANGES = [
@@ -589,6 +572,7 @@
     hyper:  { BTC:"BTC", ETH:"ETH", SOL:"SOL", XRP:"XRP", ZEC:"ZEC", DOGE:"DOGE", ADA:"ADA", LINK:"LINK", AVAX:"AVAX", LTC:"LTC", BCH:"BCH", DOT:"DOT" },
     aster:  { BTC:"BTCUSDT", ETH:"ETHUSDT", SOL:"SOLUSDT", XRP:"XRPUSDT", ZEC:"ZECUSDT", DOGE:"DOGEUSDT", ADA:"ADAUSDT", LINK:"LINKUSDT", AVAX:"AVAXUSDT", LTC:"LTCUSDT", BCH:"BCHUSDT", DOT:"DOTUSDT" },
     okx:    { BTC:"BTC-USDT-SWAP", ETH:"ETH-USDT-SWAP", SOL:"SOL-USDT-SWAP", XRP:"XRP-USDT-SWAP", ZEC:"ZEC-USDT-SWAP", DOGE:"DOGE-USDT-SWAP", ADA:"ADA-USDT-SWAP", LINK:"LINK-USDT-SWAP", AVAX:"AVAX-USDT-SWAP", LTC:"LTC-USDT-SWAP", BCH:"BCH-USDT-SWAP", DOT:"DOT-USDT-SWAP" },
+    // Kraken Futures perps (as you used)
     kraken: { BTC:"PF_XBTUSD", ETH:"PF_ETHUSD", SOL:"PF_SOLUSD", XRP:"PF_XRPUSD", ZEC:"PF_ZECUSD", DOGE:"PF_DOGEUSD", ADA:"PF_ADAUSD", LINK:"PF_LINKUSD", AVAX:"PF_AVAXUSD", LTC:"PF_LTCUSD", BCH:"PF_BCHUSD", DOT:"PF_DOTUSD" },
   };
 
@@ -611,6 +595,8 @@
 
   const heatmapStatus = document.getElementById("heatmapStatus");
   const heatmapGrid = document.getElementById("heatmapGrid");
+  const hmBtn1h = document.getElementById("hmBtn1h");
+  const hmBtn8h = document.getElementById("hmBtn8h");
 
   const leaderStatus = document.getElementById("leaderStatus");
   const leaderRows = document.getElementById("leaderRows");
@@ -650,7 +636,7 @@
   // TABS
   // ===========================
   function initTabs() {
-    const btns = document.querySelectorAll(".tab-pill");
+    const btns = document.querySelectorAll(".tab-pill[data-tab]");
     const panels = {
       prices: document.getElementById("tab-prices"),
       funding: document.getElementById("tab-funding"),
@@ -759,6 +745,20 @@
   };
 
   // ===========================
+  // HEATMAP TOGGLE
+  // ===========================
+  function setHeatmapWindow(hours){
+    HEATMAP_WINDOW_H = hours;
+    if (hmBtn1h && hmBtn8h){
+      hmBtn1h.classList.toggle("active", hours === 1);
+      hmBtn8h.classList.toggle("active", hours === 8);
+    }
+    renderFundingHeatmap();
+  }
+  if (hmBtn1h) hmBtn1h.onclick = () => setHeatmapWindow(1);
+  if (hmBtn8h) hmBtn8h.onclick = () => setHeatmapWindow(8);
+
+  // ===========================
   // HELPERS
   // ===========================
   function nowMinuteEpoch(){ return Math.floor(Date.now()/60000); }
@@ -810,10 +810,10 @@
     return r.json();
   }
 
-  // Heatmap color (computed inline; does not change data)
+  // Heatmap color (visual only)
   function heatColor(ratePerInterval){
     if (!Number.isFinite(ratePerInterval)) return "rgba(255,255,255,0.03)";
-    const max = 0.002; // clamp for visuals only
+    const max = 0.00025; // sensitivity
     const v = Math.max(-max, Math.min(max, ratePerInterval));
     const t = (v + max) / (2*max);
 
@@ -870,7 +870,7 @@
   }
 
   // ===========================
-  // DAILY STORE (unchanged)
+  // DAILY STORE
   // ===========================
   let dailyStore = { spread:{}, funding:{} };
   function loadDailyStore(){
@@ -1004,7 +1004,6 @@
   // ===========================
   const prices = {};   // prices[ex][coin] = number
   const funding = {};  // funding[ex][coin] = { rate, intervalH }
-
   let lastSpreadSnapshot = [];
 
   // ===========================
@@ -1099,74 +1098,67 @@
     await Promise.allSettled([...tickTasks, ...fundTasks]);
   }
 
- async function loadKrakenFutures(){
-  const j = await fetchJson("https://futures.kraken.com/derivatives/api/v3/tickers");
-  const arr = j?.tickers || j?.result || j;
+  // ✅ Kraken prices from /tickers; Kraken funding from /historical-funding-rates (latest relativeFundingRate) => true hourly
+  async function loadKrakenFutures(){
+    if (!prices.kraken) prices.kraken = {};
+    if (!funding.kraken) funding.kraken = {};
 
-  const tMap = new Map();
-  if (Array.isArray(arr)){
-    for (const t of arr){
-      const sym = t?.symbol || t?.instrument || t?.product_id;
-      if (sym) tMap.set(sym, t);
-    }
-  }
+    // 1) Prices (single call)
+    const tj = await fetchJson("https://futures.kraken.com/derivatives/api/v3/tickers");
+    const tArr = tj?.tickers || tj?.result || tj;
 
-  if (!prices.kraken) prices.kraken = {};
-  if (!funding.kraken) funding.kraken = {};
-
-  // Kraken perps: funding is effectively an hourly rate (realised hourly)
-  // We'll display it as "per 1 hour" on the heatmap and tables.
-  const KRAKEN_INTERVAL_H = 1;
-
-  // Normalizer: Kraken payloads can expose funding fields in different scales.
-  // We want a DECIMAL rate-per-hour (e.g. 0.000003 = 0.0003% per hour).
-  function normalizeKrakenHourlyRate(raw){
-    let r = Number(raw);
-    if (!Number.isFinite(r)) return NaN;
-
-    // If someone accidentally gives percentage points (e.g. 0.59 = 59%),
-    // shrink to a plausible decimal-per-hour.
-    //
-    // Typical per-hour funding is small. Historic Crypto Facilities docs show caps like 0.25%/hr in examples. :contentReference[oaicite:2]{index=2}
-    // We'll treat anything above 0.5%/hr (0.005 decimal) as "wrong scale" and rescale down.
-    //
-    // Do at most 2 rescales to avoid over-correcting.
-    for (let i=0; i<2; i++){
-      if (Math.abs(r) > 0.005) r = r / 100;
+    const tMap = new Map();
+    if (Array.isArray(tArr)){
+      for (const t of tArr){
+        const sym = t?.symbol || t?.instrument || t?.product_id;
+        if (sym) tMap.set(sym, t);
+      }
     }
 
-    return r;
-  }
+    for (const coin of COINS){
+      const sym = MAP.kraken[coin];
+      const t = tMap.get(sym);
+      if (!t) continue;
 
-  for (const coin of COINS){
-    const sym = MAP.kraken[coin];
-    const t = tMap.get(sym);
-    if (!t) continue;
-
-    // Price: Kraken tickers usually provide markPrice
-    const px = Number(
-      t?.markPrice ?? t?.mark_price ?? t?.last ?? t?.lastPrice ?? t?.last_price
-    );
-    if (Number.isFinite(px)) prices.kraken[coin] = px;
-
-    // Funding: prefer relative_funding_rate (current), then prediction, then other fields as fallback
-    const rawFunding =
-      t?.relative_funding_rate ??
-      t?.relativeFundingRate ??
-      t?.relative_funding_rate_prediction ??
-      t?.relativeFundingRatePrediction ??
-      t?.funding_rate ??
-      t?.fundingRate ??
-      t?.funding_rate_prediction ??
-      t?.fundingRatePrediction;
-
-    const fr = normalizeKrakenHourlyRate(rawFunding);
-
-    if (Number.isFinite(fr)){
-      funding.kraken[coin] = { rate: fr, intervalH: KRAKEN_INTERVAL_H };
+      const px = Number(t?.markPrice ?? t?.mark_price ?? t?.last ?? t?.lastPrice ?? t?.last_price);
+      if (Number.isFinite(px)) prices.kraken[coin] = px;
     }
+
+    // 2) Funding (per-symbol, but limited coin list) — use latest relativeFundingRate from historical endpoint
+    // Pull last ~2 hours worth to ensure we always have at least one record.
+    const sinceMs = Date.now() - (2 * 60 * 60 * 1000);
+
+    const tasks = COINS.map(async (coin) => {
+      const sym = MAP.kraken[coin];
+      if (!sym) return;
+
+      try{
+        const fj = await fetchJson(`https://futures.kraken.com/derivatives/api/v3/historical-funding-rates?symbol=${encodeURIComponent(sym)}&since=${sinceMs}`);
+        const rates = fj?.rates || fj?.data?.rates || fj?.result?.rates || fj?.result || fj;
+
+        if (!Array.isArray(rates) || !rates.length) return;
+
+        // rates are sorted ascending in CF schema; take last
+        const last = rates[rates.length - 1];
+
+        // Prefer relativeFundingRate (percentage-like). If not present, try snake_case.
+        const rel = Number(last?.relativeFundingRate ?? last?.relative_funding_rate);
+
+        // Only accept sane hourly values. Kraken docs mention hourly funding with max 0.25%/hour. We'll allow a bit more headroom.
+        if (Number.isFinite(rel) && Math.abs(rel) <= 0.01){
+          funding.kraken[coin] = { rate: rel, intervalH: 1 };
+          return;
+        }
+
+        // If relative is missing, try to fall back but do NOT show nonsense:
+        // fundingRate is often absolute, so we don't use it for display.
+      } catch(e){
+        // ignore per-coin failures
+      }
+    });
+
+    await Promise.allSettled(tasks);
   }
-}
 
   // ===========================
   // TABLE HEADERS
@@ -1278,15 +1270,14 @@
   }
 
   // ===========================
-  // FUNDING HEATMAP (NEW)
+  // FUNDING HEATMAP (WITH TOGGLE)
   // ===========================
   function renderFundingHeatmap(){
     const exList = EXCHANGES.filter(e => selectedEx.has(e.key));
     const coinsList = COINS.filter(c => selectedCoins.has(c));
 
-    // Header row
     const head = `
-      <div class="grid" style="grid-template-columns: 140px repeat(${exList.length}, minmax(140px, 1fr)); gap: 10px;">
+      <div class="grid" style="grid-template-columns: 140px repeat(${exList.length}, minmax(160px, 1fr)); gap: 10px;">
         <div class="text-xs uppercase tracking-wider text-gray-300 px-2 py-2">Asset</div>
         ${exList.map(e => `<div class="text-xs uppercase tracking-wider text-gray-300 px-2 py-2 text-center">${e.name}</div>`).join("")}
       </div>
@@ -1295,17 +1286,34 @@
     const rows = coinsList.map(coin => {
       const cells = exList.map(e => {
         const rec = funding?.[e.key]?.[coin];
-        const r = Number(rec?.rate);
-        const ih = Number(rec?.intervalH);
-        const apr = aprFromRate(r, ih);
+        const r = Number(rec?.rate);        // per interval
+        const ih = Number(rec?.intervalH);  // interval hours
 
-        const bg = heatColor(r);
-        const title = Number.isFinite(r)
-          ? `${coin} @ ${e.name}\nFunding/interval: ${(r*100).toFixed(6)}%\nInterval: ${Number.isFinite(ih)?ih.toFixed(2):"?"}h\n365-day: ${Number.isFinite(apr)?apr.toFixed(4):"?"}%`
+        // Normalize to selected window:
+        // rate_window = rate_interval * (WindowH / intervalH)
+        let rWindow = NaN;
+        if (Number.isFinite(r) && Number.isFinite(ih) && ih > 0){
+          rWindow = r * (HEATMAP_WINDOW_H / ih);
+        }
+
+        // APR from window rate:
+        let aprWindow = NaN;
+        if (Number.isFinite(rWindow) && HEATMAP_WINDOW_H > 0){
+          const windowsPerYear = (365*24) / HEATMAP_WINDOW_H;
+          aprWindow = rWindow * windowsPerYear * 100;
+        }
+
+        const bg = heatColor(rWindow);
+
+        const title = Number.isFinite(rWindow)
+          ? `${coin} @ ${e.name}\nFunding/${HEATMAP_WINDOW_H}h: ${(rWindow*100).toFixed(6)}%\nOrig interval: ${Number.isFinite(ih)?ih.toFixed(2):"?"}h\n365-day: ${Number.isFinite(aprWindow)?aprWindow.toFixed(4):"?"}%`
           : `${coin} @ ${e.name}\nNo funding data`;
 
-        const label = Number.isFinite(r) ? fmtFunding(r) : "—";
-        const sub = Number.isFinite(ih) ? `${fmtIntervalH(ih)} · ${Number.isFinite(apr)?(apr>=0?"":"−")+Math.abs(apr).toFixed(2)+"%":"—"}` : "—";
+        const label = Number.isFinite(rWindow) ? fmtFunding(rWindow) : "—";
+        const sub =
+          Number.isFinite(ih)
+            ? `${fmtIntervalH(ih)} · ${Number.isFinite(aprWindow) ? ((aprWindow>=0?"":"−")+Math.abs(aprWindow).toFixed(2)+"%") : "—"}`
+            : "—";
 
         return `
           <div class="hm-cell rounded-2xl p-3 text-center" style="background:${bg}" title="${title.replace(/"/g,"&quot;")}">
@@ -1316,7 +1324,7 @@
       }).join("");
 
       return `
-        <div class="grid items-stretch mt-2" style="grid-template-columns: 140px repeat(${exList.length}, minmax(140px, 1fr)); gap: 10px;">
+        <div class="grid items-stretch mt-2" style="grid-template-columns: 140px repeat(${exList.length}, minmax(160px, 1fr)); gap: 10px;">
           <div class="glass rounded-2xl px-3 py-3 font-monoNums flex items-center">${coin}</div>
           ${cells}
         </div>
@@ -1324,7 +1332,7 @@
     }).join("");
 
     heatmapGrid.innerHTML = head + rows;
-    heatmapStatus.textContent = `${new Date().toLocaleTimeString()}`;
+    heatmapStatus.textContent = `${new Date().toLocaleTimeString()} · ${HEATMAP_WINDOW_H}h view`;
   }
 
   // ===========================
@@ -1473,7 +1481,7 @@
   }
 
   // ===========================
-  // DAILY FUNDING BEST (unchanged)
+  // FUNDING DAILY UPDATE
   // ===========================
   function updateDailyFundingFromCurrent(){
     const exList = EXCHANGES.filter(e => selectedEx.has(e.key));
@@ -1551,12 +1559,12 @@
 
     renderFunding();
     renderFundingArb();
-    renderFundingHeatmap();        // ✅ keep heatmap fresh
+    renderFundingHeatmap();
     updateDailyFundingFromCurrent();
 
     const ms = Date.now() - start;
     fundingStatus.textContent = `${new Date().toLocaleTimeString()} · ${ms}ms`;
-    heatmapStatus.textContent = `${new Date().toLocaleTimeString()} · ${ms}ms`;
+    heatmapStatus.textContent = `${new Date().toLocaleTimeString()} · ${HEATMAP_WINDOW_H}h view`;
 
     liveStatusText.textContent = ok ? "LIVE" : "DEGRADED";
     liveStatusText.style.color = ok ? "var(--neon)" : "#fca5a5";
@@ -1579,6 +1587,9 @@
     renderFilterUI();
     buildTables();
     refreshAllDropdowns();
+
+    // Ensure toggle initial state
+    setHeatmapWindow(1);
 
     arbRecalc.onclick = renderArb;
     faRecalc.onclick = renderFundingArb;
