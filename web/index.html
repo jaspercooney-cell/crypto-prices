@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Perp Insights — Prices, Funding, Leaderboard, Arb Tools</title>
+  <title>Perp Insights — Multi-Exchange</title>
 
   <style>
     body { font-family: Arial, sans-serif; background:#0f172a; color:#e5e7eb; padding:24px; }
     h1 { margin: 0 0 8px 0; }
     .sub { color:#9ca3af; margin-bottom:16px; line-height: 1.45; }
-    .card { background:#111827; border-radius:12px; padding:16px; max-width: 1100px; margin-bottom:16px; }
+    .card { background:#111827; border-radius:12px; padding:16px; max-width: 1200px; margin-bottom:16px; }
     table { width:100%; border-collapse: collapse; }
     th, td { padding: 12px 10px; border-bottom: 1px solid #1f2937; }
     th { color:#cbd5e1; font-weight: 600; text-align:left; }
@@ -28,7 +28,7 @@
     .dash-title { display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; }
     .dash-title h2 { margin: 0; font-size: 16px; color:#e5e7eb; }
 
-    /* Row highlight when |bps| >= 5 */
+    /* Row highlight when spread >= 5bp */
     .hot {
       background: rgba(250, 204, 21, 0.12);
       outline: 1px solid rgba(250, 204, 21, 0.35);
@@ -46,13 +46,25 @@
       color:#cbd5e1;
       font-size:14px;
     }
-    .tab-btn.active {
-      background:#111827;
-      border-color:#334155;
-      color:#e5e7eb;
-    }
+    .tab-btn.active { background:#111827; border-color:#334155; color:#e5e7eb; }
     .tab-panel { display:none; }
     .tab-panel.active { display:block; }
+
+    /* Filters */
+    .filters { display:flex; gap:14px; flex-wrap:wrap; align-items:flex-start; }
+    .filter-box { border:1px solid #1f2937; border-radius:12px; padding:12px; background:#0b1220; }
+    .filter-title { font-size:12px; color:#cbd5e1; margin:0 0 8px 0; font-weight:700; }
+    .chk { display:flex; gap:8px; align-items:center; margin:6px 0; font-size:13px; color:#e5e7eb; }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .btn {
+      cursor:pointer;
+      padding:10px 12px;
+      border-radius:10px;
+      border:1px solid #1f2937;
+      background:#0b1220;
+      color:#e5e7eb;
+      font-size:14px;
+    }
 
     /* Inputs */
     .grid { display:grid; gap:12px; }
@@ -60,6 +72,7 @@
     .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     @media (max-width: 980px) { .grid-3 { grid-template-columns: 1fr; } }
     @media (max-width: 820px) { .grid-2 { grid-template-columns: 1fr; } }
+
     label { display:block; font-size:12px; color:#cbd5e1; margin-bottom:6px; }
     input, select {
       width:100%;
@@ -75,15 +88,6 @@
       padding:10px 12px; border-radius:12px; border:1px solid #1f2937; background:#0b1220;
     }
     .kpi .v { font-weight:700; }
-    .btn {
-      cursor:pointer;
-      padding:10px 12px;
-      border-radius:10px;
-      border:1px solid #1f2937;
-      background:#0b1220;
-      color:#e5e7eb;
-      font-size:14px;
-    }
   </style>
 </head>
 
@@ -92,15 +96,53 @@
   <div class="sub">
     <span class="pill">Hyperliquid</span>
     <span class="pill">Aster</span>
-    <span class="pill">$ Diff = Aster − Hyperliquid</span>
-    <span class="pill">bps = 10,000 × (Aster − Hyper) / Hyper</span><br/>
-    Prices refresh every <b>2s</b> · Funding refresh every <b>60s</b>
+    <span class="pill">Kraken Futures</span>
+    <span class="pill">OKX</span><br/>
+    Spread bps uses: <b>10,000 × (maxPrice − minPrice) / minPrice</b><br/>
+    Prices refresh every <b>3s</b> · Funding refresh every <b>60s</b>
+  </div>
+
+  <div class="card">
+    <div class="dash-title">
+      <h2>Filters</h2>
+      <div class="muted" id="filterStatus">Choose exchanges + coins, then “Apply filters”.</div>
+    </div>
+
+    <div class="filters" style="margin-top:12px;">
+      <div class="filter-box">
+        <div class="filter-title">Exchanges</div>
+        <div id="exchChecks"></div>
+        <div class="actions" style="margin-top:8px;">
+          <button class="btn" id="exAll">Select all</button>
+          <button class="btn" id="exNone">Clear</button>
+        </div>
+      </div>
+
+      <div class="filter-box">
+        <div class="filter-title">Coins</div>
+        <div id="coinChecks" style="max-height:220px; overflow:auto; padding-right:8px;"></div>
+        <div class="actions" style="margin-top:8px;">
+          <button class="btn" id="cAll">Select all</button>
+          <button class="btn" id="cNone">Clear</button>
+        </div>
+      </div>
+
+      <div class="filter-box" style="min-width:240px;">
+        <div class="filter-title">Actions</div>
+        <div class="actions">
+          <button class="btn" id="applyFilters">Apply filters</button>
+          <button class="btn" id="resetFilters">Reset defaults</button>
+        </div>
+        <div class="muted" style="margin-top:10px;">
+          Defaults: all exchanges + all coins.
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="tabs">
     <button class="tab-btn active" data-tab="prices">Prices</button>
     <button class="tab-btn" data-tab="funding">Funding</button>
-    <button class="tab-btn" data-tab="leaderboard">Leaderboard</button>
     <button class="tab-btn" data-tab="arb">Arb PnL Estimator</button>
     <button class="tab-btn" data-tab="fundarb">Funding rate arb calculator</button>
   </div>
@@ -114,22 +156,13 @@
       </div>
 
       <table>
-        <thead>
-          <tr>
-            <th>Asset</th>
-            <th class="right">Hyperliquid (Mark)</th>
-            <th class="right">Aster (Last)</th>
-            <th class="right">$ Diff</th>
-            <th class="right">bps Diff</th>
-            <th class="right">24h High (bps)</th>
-          </tr>
-        </thead>
+        <thead id="pricesHead"></thead>
         <tbody id="priceRows"></tbody>
       </table>
 
-      <div class="muted">
-        <b>Row will highlight when price difference exceeds or equals 5bp</b><br/>
-        24h High (bps) is the largest absolute bps difference observed in the last 24 hours (stored in your browser).
+      <div class="muted" id="pricesNote">
+        <b>Row will highlight when price spread across selected exchanges exceeds or equals 5bp</b><br/>
+        “24h High (bps)” is the largest spread observed in the last 24h (stored in your browser).
       </div>
     </div>
   </div>
@@ -143,51 +176,12 @@
       </div>
 
       <table>
-        <thead>
-          <tr>
-            <th>Asset</th>
-
-            <th class="right">HL Funding</th>
-            <th class="right">HL Interval</th>
-            <th class="right">HL 365-day</th>
-
-            <th class="right">Aster Funding</th>
-            <th class="right">Aster Interval</th>
-            <th class="right">Aster 365-day</th>
-          </tr>
-        </thead>
+        <thead id="fundingHead"></thead>
         <tbody id="fundingRows"></tbody>
       </table>
 
       <div class="muted">
-        365-day is normalised as: <b>rate_per_window × (365×24 / interval_hours)</b>. Convention assumed: positive funding means longs pay shorts.
-      </div>
-    </div>
-  </div>
-
-  <!-- LEADERBOARD TAB -->
-  <div id="tab-leaderboard" class="tab-panel">
-    <div class="card">
-      <div class="dash-title">
-        <h2>Leaderboard (|bps| desc)</h2>
-        <div class="muted" id="leaderStatus">Uses latest Prices refresh</div>
-      </div>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Asset</th>
-            <th class="right">Hyperliquid</th>
-            <th class="right">Aster</th>
-            <th class="right">$ Diff</th>
-            <th class="right">bps Diff</th>
-          </tr>
-        </thead>
-        <tbody id="leaderRows"></tbody>
-      </table>
-
-      <div class="muted">
-        Sorted by absolute bps difference. Rows highlight at ≥ 5 bps.
+        365-day is normalised as: <b>rate_per_window × (365×24 / interval_hours)</b>.
       </div>
     </div>
   </div>
@@ -197,7 +191,7 @@
     <div class="card">
       <div class="dash-title">
         <h2>Arb PnL Estimator</h2>
-        <div class="muted">Estimate gross/fees/net for convergence trades</div>
+        <div class="muted">Pick Buy + Sell exchanges (uses live prices)</div>
       </div>
 
       <div class="grid grid-2" style="margin-top:12px;">
@@ -205,53 +199,40 @@
           <label>Asset</label>
           <select id="arbAsset"></select>
         </div>
-
         <div>
           <label>Notional (USD)</label>
           <input id="arbNotional" type="number" value="100000" min="0" step="1000" />
         </div>
 
         <div>
-          <label>Expected Convergence (bps)</label>
+          <label>Buy exchange</label>
+          <select id="arbBuyEx"></select>
+        </div>
+        <div>
+          <label>Sell exchange</label>
+          <select id="arbSellEx"></select>
+        </div>
+
+        <div>
+          <label>Target convergence (bps)</label>
           <input id="arbConvBps" type="number" value="5" step="0.1" />
         </div>
-
         <div>
-          <label>Fees (bps, total)</label>
-          <input id="arbFeesBps" type="number" value="2" step="0.1" />
-        </div>
-
-        <div>
-          <label>Slippage (bps, total)</label>
-          <input id="arbSlipBps" type="number" value="1" step="0.1" />
-        </div>
-
-        <div>
-          <label>Direction</label>
-          <select id="arbDir">
-            <option value="auto" selected>Auto (based on current diff)</option>
-            <option value="sell_aster_buy_hyper">Sell Aster / Buy Hyper</option>
-            <option value="buy_aster_sell_hyper">Buy Aster / Sell Hyper</option>
-          </select>
+          <label>Total costs (bps) — fees + slippage</label>
+          <input id="arbCostsBps" type="number" value="3" step="0.1" />
         </div>
       </div>
 
       <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
         <button class="btn" id="arbRecalc">Recalculate</button>
-        <div class="muted">Uses latest live prices. Gross assumes convergence by the entered bps.</div>
+        <div class="muted">Gross ≈ Notional × (convergence bps / 10,000)</div>
       </div>
 
       <div class="grid grid-2" style="margin-top:14px;">
-        <div class="kpi"><div>Current bps diff</div><div class="v" id="arbCurBps">—</div></div>
+        <div class="kpi"><div>Current buy/sell spread (bps)</div><div class="v" id="arbCurBps">—</div></div>
         <div class="kpi"><div>Gross PnL (USD)</div><div class="v" id="arbGross">—</div></div>
-        <div class="kpi"><div>Fees (USD)</div><div class="v" id="arbFees">—</div></div>
-        <div class="kpi"><div>Slippage (USD)</div><div class="v" id="arbSlip">—</div></div>
+        <div class="kpi"><div>Costs (USD)</div><div class="v" id="arbCosts">—</div></div>
         <div class="kpi"><div>Net PnL (USD)</div><div class="v" id="arbNet">—</div></div>
-        <div class="kpi"><div>Suggested trade</div><div class="v" id="arbTrade">—</div></div>
-      </div>
-
-      <div class="muted" style="margin-top:10px;">
-        Gross ≈ Notional × (Convergence bps / 10,000). Costs ≈ Notional × (bps / 10,000).
       </div>
     </div>
   </div>
@@ -261,7 +242,7 @@
     <div class="card">
       <div class="dash-title">
         <h2>Funding rate arb calculator</h2>
-        <div class="muted">Uses each venue’s own funding window (auto)</div>
+        <div class="muted">Long one venue, short the other — uses live funding + each venue’s interval</div>
       </div>
 
       <div class="grid grid-2" style="margin-top:12px;">
@@ -269,223 +250,238 @@
           <label>Asset</label>
           <select id="faAsset"></select>
         </div>
-
         <div>
-          <label>Notional (USD) — same on both legs</label>
+          <label>Notional (USD) per leg</label>
           <input id="faNotional" type="number" value="100000" min="0" step="1000" />
         </div>
 
         <div>
           <label>Long venue</label>
-          <select id="faLongVenue">
-            <option value="hyper" selected>Hyperliquid (Long)</option>
-            <option value="aster">Aster (Long)</option>
-          </select>
+          <select id="faLongEx"></select>
         </div>
-
         <div>
           <label>Short venue</label>
-          <select id="faShortVenue">
-            <option value="aster" selected>Aster (Short)</option>
-            <option value="hyper">Hyperliquid (Short)</option>
-          </select>
+          <select id="faShortEx"></select>
         </div>
 
         <div>
           <label>Holding period (hours)</label>
           <input id="faHoldHours" type="number" value="24" min="0" step="1" />
         </div>
-
         <div>
-          <label>Total costs (bps) — fees + slippage (both legs combined)</label>
+          <label>Total costs (bps) — fees + slippage</label>
           <input id="faCostsBps" type="number" value="3" step="0.1" />
-        </div>
-      </div>
-
-      <div class="grid grid-2" style="margin-top:12px;">
-        <div>
-          <label>Sign convention (Hyperliquid)</label>
-          <select id="faSignHyper">
-            <option value="standard" selected>Standard (positive = longs pay)</option>
-            <option value="invert">Invert</option>
-          </select>
-        </div>
-
-        <div>
-          <label>Sign convention (Aster)</label>
-          <select id="faSignAster">
-            <option value="standard" selected>Standard (positive = longs pay)</option>
-            <option value="invert">Invert</option>
-          </select>
         </div>
       </div>
 
       <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
         <button class="btn" id="faRecalc">Recalculate</button>
-        <div class="muted">Funding PnL uses <b>#windows = hold_hours / interval_hours</b> per venue.</div>
+        <div class="muted">Assumes “positive funding = longs pay shorts”. If inverted on a venue, tell me and I’ll flip it.</div>
       </div>
 
       <div class="grid grid-3" style="margin-top:14px;">
-        <div class="kpi"><div>HL funding / interval</div><div class="v" id="faHyperFund">—</div></div>
-        <div class="kpi"><div>HL interval</div><div class="v" id="faHyperInt">—</div></div>
-        <div class="kpi"><div>HL windows</div><div class="v" id="faHyperWin">—</div></div>
+        <div class="kpi"><div>Long funding / interval</div><div class="v" id="faLongFund">—</div></div>
+        <div class="kpi"><div>Long interval</div><div class="v" id="faLongInt">—</div></div>
+        <div class="kpi"><div>Long windows</div><div class="v" id="faLongWin">—</div></div>
 
-        <div class="kpi"><div>Aster funding / interval</div><div class="v" id="faAsterFund">—</div></div>
-        <div class="kpi"><div>Aster interval</div><div class="v" id="faAsterInt">—</div></div>
-        <div class="kpi"><div>Aster windows</div><div class="v" id="faAsterWin">—</div></div>
+        <div class="kpi"><div>Short funding / interval</div><div class="v" id="faShortFund">—</div></div>
+        <div class="kpi"><div>Short interval</div><div class="v" id="faShortInt">—</div></div>
+        <div class="kpi"><div>Short windows</div><div class="v" id="faShortWin">—</div></div>
 
         <div class="kpi"><div>Funding PnL (USD)</div><div class="v" id="faFundingPnl">—</div></div>
         <div class="kpi"><div>Costs (USD)</div><div class="v" id="faCosts">—</div></div>
-        <div class="kpi"><div>Net result (USD)</div><div class="v" id="faNet">—</div></div>
-
-        <div class="kpi"><div>Net result (%)</div><div class="v" id="faNetPct">—</div></div>
-        <div class="kpi"><div>Carry direction</div><div class="v" id="faCarry">—</div></div>
-        <div class="kpi"><div>Net carry 365-day</div><div class="v" id="faCarryApr">—</div></div>
-      </div>
-
-      <div class="muted" style="margin-top:10px;">
-        Assumed convention: if funding is positive, <b>longs pay shorts</b>. If results look inverted, flip sign convention for that venue.
+        <div class="kpi"><div>Net (USD)</div><div class="v" id="faNet">—</div></div>
       </div>
     </div>
   </div>
 
 <script>
+  // === set this to your worker ===
   const PROXY_BASE = "https://purple-sky-264e.jasper-cooney.workers.dev/?url=";
+
   const BPS_HIGHLIGHT = 5;
+  const PRICES_REFRESH_MS = 3000;
+  const FUNDING_REFRESH_MS = 60000;
 
-  // 24h high tracking (minute buckets)
-  const HIGH_WINDOW_MINUTES = 24 * 60; // 1440
-  const HIGH_STORE_KEY = "perpinsights_24h_high_bps_v1";
+  // 24h high spread across SELECTED exchanges (minute buckets)
+  const HIGH_WINDOW_MINUTES = 24 * 60;
+  const HIGH_STORE_KEY = "perpinsights_24h_high_spread_bps_v2";
 
-  const ASSETS = [
-    { key:"BTC", hyper:"BTC", aster:"BTCUSDT" },
-    { key:"ETH", hyper:"ETH", aster:"ETHUSDT" },
-    { key:"SOL", hyper:"SOL", aster:"SOLUSDT" },
-    { key:"XRP", hyper:"XRP", aster:"XRPUSDT" },
-    { key:"ZEC", hyper:"ZEC", aster:"ZECUSDT" },
+  // Same coins you currently had
+  const COINS = ["BTC","ETH","SOL","XRP","ZEC","DOGE","ADA","LINK","AVAX","LTC","BCH","DOT"];
 
-    { key:"DOGE", hyper:"DOGE", aster:"DOGEUSDT" },
-    { key:"ADA",  hyper:"ADA",  aster:"ADAUSDT"  },
-    { key:"LINK", hyper:"LINK", aster:"LINKUSDT" },
-    { key:"AVAX", hyper:"AVAX", aster:"AVAXUSDT" },
-    { key:"LTC",  hyper:"LTC",  aster:"LTCUSDT"  },
-    { key:"BCH",  hyper:"BCH",  aster:"BCHUSDT"  },
-    { key:"DOT",  hyper:"DOT",  aster:"DOTUSDT"  },
+  // Exchange list
+  const EXCHANGES = [
+    { key:"hyper",  name:"Hyperliquid" },
+    { key:"aster",  name:"Aster" },
+    { key:"kraken", name:"Kraken" },
+    { key:"okx",    name:"OKX" },
   ];
 
-  // DOM
+  // Symbol mappings per exchange
+  const MAP = {
+    hyper:  { BTC:"BTC", ETH:"ETH", SOL:"SOL", XRP:"XRP", ZEC:"ZEC", DOGE:"DOGE", ADA:"ADA", LINK:"LINK", AVAX:"AVAX", LTC:"LTC", BCH:"BCH", DOT:"DOT" },
+    aster:  { BTC:"BTCUSDT", ETH:"ETHUSDT", SOL:"SOLUSDT", XRP:"XRPUSDT", ZEC:"ZECUSDT", DOGE:"DOGEUSDT", ADA:"ADAUSDT", LINK:"LINKUSDT", AVAX:"AVAXUSDT", LTC:"LTCUSDT", BCH:"BCHUSDT", DOT:"DOTUSDT" },
+    okx:    { BTC:"BTC-USDT-SWAP", ETH:"ETH-USDT-SWAP", SOL:"SOL-USDT-SWAP", XRP:"XRP-USDT-SWAP", ZEC:"ZEC-USDT-SWAP", DOGE:"DOGE-USDT-SWAP", ADA:"ADA-USDT-SWAP", LINK:"LINK-USDT-SWAP", AVAX:"AVAX-USDT-SWAP", LTC:"LTC-USDT-SWAP", BCH:"BCH-USDT-SWAP", DOT:"DOT-USDT-SWAP" },
+    // Kraken Futures perpetuals commonly use XBT not BTC
+    kraken: { BTC:"PF_XBTUSD", ETH:"PF_ETHUSD", SOL:"PF_SOLUSD", XRP:"PF_XRPUSD", ZEC:"PF_ZECUSD", DOGE:"PF_DOGEUSD", ADA:"PF_ADAUSD", LINK:"PF_LINKUSD", AVAX:"PF_AVAXUSD", LTC:"PF_LTCUSD", BCH:"PF_BCHUSD", DOT:"PF_DOTUSD" },
+  };
+
+  // ===== DOM =====
+  const exchChecks = document.getElementById("exchChecks");
+  const coinChecks = document.getElementById("coinChecks");
+  const filterStatus = document.getElementById("filterStatus");
+
+  const pricesHead = document.getElementById("pricesHead");
   const priceRows = document.getElementById("priceRows");
-  const fundingRows = document.getElementById("fundingRows");
-  const leaderRows = document.getElementById("leaderRows");
-
   const priceStatus = document.getElementById("priceStatus");
-  const fundingStatus = document.getElementById("fundingStatus");
-  const leaderStatus = document.getElementById("leaderStatus");
 
-  // Arb UI
+  const fundingHead = document.getElementById("fundingHead");
+  const fundingRows = document.getElementById("fundingRows");
+  const fundingStatus = document.getElementById("fundingStatus");
+
   const arbAsset = document.getElementById("arbAsset");
+  const arbBuyEx = document.getElementById("arbBuyEx");
+  const arbSellEx = document.getElementById("arbSellEx");
   const arbNotional = document.getElementById("arbNotional");
   const arbConvBps = document.getElementById("arbConvBps");
-  const arbFeesBps = document.getElementById("arbFeesBps");
-  const arbSlipBps = document.getElementById("arbSlipBps");
-  const arbDir = document.getElementById("arbDir");
+  const arbCostsBps = document.getElementById("arbCostsBps");
   const arbRecalc = document.getElementById("arbRecalc");
-
   const arbCurBps = document.getElementById("arbCurBps");
   const arbGross = document.getElementById("arbGross");
-  const arbFees = document.getElementById("arbFees");
-  const arbSlip = document.getElementById("arbSlip");
+  const arbCosts = document.getElementById("arbCosts");
   const arbNet = document.getElementById("arbNet");
-  const arbTrade = document.getElementById("arbTrade");
 
-  // Funding arb UI
   const faAsset = document.getElementById("faAsset");
+  const faLongEx = document.getElementById("faLongEx");
+  const faShortEx = document.getElementById("faShortEx");
   const faNotional = document.getElementById("faNotional");
-  const faLongVenue = document.getElementById("faLongVenue");
-  const faShortVenue = document.getElementById("faShortVenue");
   const faHoldHours = document.getElementById("faHoldHours");
   const faCostsBps = document.getElementById("faCostsBps");
-  const faSignHyper = document.getElementById("faSignHyper");
-  const faSignAster = document.getElementById("faSignAster");
   const faRecalc = document.getElementById("faRecalc");
-
-  const faHyperFund = document.getElementById("faHyperFund");
-  const faHyperInt = document.getElementById("faHyperInt");
-  const faHyperWin = document.getElementById("faHyperWin");
-  const faAsterFund = document.getElementById("faAsterFund");
-  const faAsterInt = document.getElementById("faAsterInt");
-  const faAsterWin = document.getElementById("faAsterWin");
+  const faLongFund = document.getElementById("faLongFund");
+  const faLongInt = document.getElementById("faLongInt");
+  const faLongWin = document.getElementById("faLongWin");
+  const faShortFund = document.getElementById("faShortFund");
+  const faShortInt = document.getElementById("faShortInt");
+  const faShortWin = document.getElementById("faShortWin");
   const faFundingPnl = document.getElementById("faFundingPnl");
   const faCosts = document.getElementById("faCosts");
   const faNet = document.getElementById("faNet");
-  const faNetPct = document.getElementById("faNetPct");
-  const faCarry = document.getElementById("faCarry");
-  const faCarryApr = document.getElementById("faCarryApr");
 
-  // Data stores
-  let latestSnapshot = []; // { key, hPx, aPx, diffUsd, bps }
-  let latestFunding = {};  // { [assetKey]: { hyper:{rate, intervalH}, aster:{rate, intervalH} } }
+  // ===== Tabs =====
+  function initTabs() {
+    const btns = document.querySelectorAll(".tab-btn");
+    const panels = {
+      prices: document.getElementById("tab-prices"),
+      funding: document.getElementById("tab-funding"),
+      arb: document.getElementById("tab-arb"),
+      fundarb: document.getElementById("tab-fundarb"),
+    };
+    btns.forEach(b => {
+      b.addEventListener("click", () => {
+        btns.forEach(x => x.classList.remove("active"));
+        b.classList.add("active");
+        Object.values(panels).forEach(p => p.classList.remove("active"));
+        panels[b.dataset.tab].classList.add("active");
+        // refresh calculator dropdowns on tab open
+        if (b.dataset.tab === "arb") renderArb();
+        if (b.dataset.tab === "fundarb") renderFundingArb();
+      });
+    });
+  }
 
-  // 24h highs store: { [assetKey]: [{m:<minuteEpoch>, bps:<signed bps max abs in that minute>}, ...] }
-  let highStore = {};
+  // ===== Filters state =====
+  const FILTER_KEY = "perpinsights_filters_v1";
+  let selectedEx = new Set(EXCHANGES.map(x => x.key));
+  let selectedCoins = new Set(COINS);
 
-  // -------- helpers --------
-  function nowMinuteEpoch() { return Math.floor(Date.now() / 60000); }
-
-  function loadHighStore() {
+  function saveFilters() {
     try {
-      const raw = localStorage.getItem(HIGH_STORE_KEY);
-      highStore = raw ? JSON.parse(raw) : {};
-    } catch {
-      highStore = {};
-    }
+      localStorage.setItem(FILTER_KEY, JSON.stringify({
+        ex: [...selectedEx],
+        coins: [...selectedCoins],
+      }));
+    } catch {}
+  }
+  function loadFilters() {
+    try {
+      const raw = localStorage.getItem(FILTER_KEY);
+      if (!raw) return;
+      const j = JSON.parse(raw);
+      if (Array.isArray(j.ex)) selectedEx = new Set(j.ex);
+      if (Array.isArray(j.coins)) selectedCoins = new Set(j.coins);
+    } catch {}
   }
 
-  function saveHighStore() {
-    try { localStorage.setItem(HIGH_STORE_KEY, JSON.stringify(highStore)); } catch {}
+  function renderFilterUI() {
+    exchChecks.innerHTML = EXCHANGES.map(e => `
+      <label class="chk">
+        <input type="checkbox" data-ex="${e.key}" ${selectedEx.has(e.key) ? "checked" : ""}/>
+        ${e.name}
+      </label>
+    `).join("");
+
+    coinChecks.innerHTML = COINS.map(c => `
+      <label class="chk">
+        <input type="checkbox" data-coin="${c}" ${selectedCoins.has(c) ? "checked" : ""}/>
+        ${c}
+      </label>
+    `).join("");
+
+    exchChecks.querySelectorAll("input[type=checkbox]").forEach(cb => {
+      cb.addEventListener("change", () => {
+        const k = cb.dataset.ex;
+        cb.checked ? selectedEx.add(k) : selectedEx.delete(k);
+      });
+    });
+
+    coinChecks.querySelectorAll("input[type=checkbox]").forEach(cb => {
+      cb.addEventListener("change", () => {
+        const k = cb.dataset.coin;
+        cb.checked ? selectedCoins.add(k) : selectedCoins.delete(k);
+      });
+    });
   }
 
-  function pruneHighStore() {
-    const cutoff = nowMinuteEpoch() - HIGH_WINDOW_MINUTES;
-    for (const k of Object.keys(highStore)) {
-      const arr = Array.isArray(highStore[k]) ? highStore[k] : [];
-      highStore[k] = arr.filter(x => x && Number.isFinite(x.m) && x.m >= cutoff && Number.isFinite(x.bps));
-      if (highStore[k].length === 0) delete highStore[k];
-    }
+  function setAllEx(on) {
+    selectedEx = new Set(on ? EXCHANGES.map(x=>x.key) : []);
+    renderFilterUI();
+  }
+  function setAllCoins(on) {
+    selectedCoins = new Set(on ? COINS : []);
+    renderFilterUI();
   }
 
-  function updateHigh(assetKey, bpsSigned) {
-    if (!Number.isFinite(bpsSigned)) return;
+  document.getElementById("exAll").onclick = () => setAllEx(true);
+  document.getElementById("exNone").onclick = () => setAllEx(false);
+  document.getElementById("cAll").onclick = () => setAllCoins(true);
+  document.getElementById("cNone").onclick = () => setAllCoins(false);
 
-    const m = nowMinuteEpoch();
-    if (!highStore[assetKey] || !Array.isArray(highStore[assetKey])) highStore[assetKey] = [];
+  document.getElementById("applyFilters").onclick = () => {
+    // Basic guardrails
+    if (selectedEx.size < 1) { alert("Select at least 1 exchange"); return; }
+    if (selectedCoins.size < 1) { alert("Select at least 1 coin"); return; }
 
-    const arr = highStore[assetKey];
-    const last = arr.length ? arr[arr.length - 1] : null;
+    saveFilters();
+    filterStatus.textContent = `Applied: ${selectedEx.size} exchanges, ${selectedCoins.size} coins.`;
+    buildTables();
+    refreshAllDropdowns();
+    // refresh immediately
+    refreshPrices();
+    refreshFunding();
+  };
 
-    if (last && last.m === m) {
-      // keep whichever has bigger abs bps for this minute bucket
-      if (Math.abs(bpsSigned) > Math.abs(last.bps)) last.bps = bpsSigned;
-    } else {
-      arr.push({ m, bps: bpsSigned });
-    }
+  document.getElementById("resetFilters").onclick = () => {
+    selectedEx = new Set(EXCHANGES.map(x=>x.key));
+    selectedCoins = new Set(COINS);
+    saveFilters();
+    renderFilterUI();
+    document.getElementById("applyFilters").click();
+  };
 
-    // prune extra old minutes
-    const cutoff = m - HIGH_WINDOW_MINUTES;
-    while (arr.length && arr[0].m < cutoff) arr.shift();
-  }
-
-  function get24hHigh(assetKey) {
-    const arr = highStore[assetKey];
-    if (!Array.isArray(arr) || arr.length === 0) return null;
-
-    let best = arr[0];
-    for (const x of arr) {
-      if (!x || !Number.isFinite(x.bps)) continue;
-      if (!best || Math.abs(x.bps) > Math.abs(best.bps)) best = x;
-    }
-    return best || null; // {m, bps}
-  }
+  // ===== Helpers =====
+  function nowMinuteEpoch() { return Math.floor(Date.now() / 60000); }
 
   function fmtUsd(x) {
     if (x === undefined || x === null || x === "" || Number.isNaN(Number(x))) return "—";
@@ -494,494 +490,502 @@
       ? "$" + n.toLocaleString(undefined, { maximumFractionDigits: 2 })
       : "$" + n.toLocaleString(undefined, { maximumFractionDigits: 6 });
   }
-
-  function fmtDiff(x) {
-    if (x === undefined || x === null || Number.isNaN(Number(x))) return { text: "—", cls: "" };
-    const n = Number(x);
-    const abs = Math.abs(n);
-    const s = (n >= 0 ? "+" : "−") + "$" + abs.toLocaleString(undefined, {
-      maximumFractionDigits: abs >= 1 ? 2 : 6
-    });
-    return { text: s, cls: n > 0 ? "pos" : (n < 0 ? "neg" : "") };
+  function fmtBpsSigned(x) {
+    if (!Number.isFinite(x)) return { text:"—", cls:"" };
+    const abs = Math.abs(x);
+    return { text: (x>=0?"+":"−") + abs.toFixed(abs < 10 ? 2 : 1) + " bps", cls: x>0?"pos":(x<0?"neg":"") };
   }
-
-  function fmtBps(x) {
-    if (x === undefined || x === null || Number.isNaN(Number(x))) return { text: "—", cls: "" };
-    const n = Number(x);
-    const abs = Math.abs(n);
-    const s = (n >= 0 ? "+" : "−") + abs.toFixed(abs < 10 ? 2 : 1) + " bps";
-    return { text: s, cls: n > 0 ? "pos" : (n < 0 ? "neg" : "") };
+  function fmtBpsAbs(x) {
+    if (!Number.isFinite(x)) return "—";
+    const abs = Math.abs(x);
+    return abs.toFixed(abs < 10 ? 2 : 1) + " bps";
   }
-
-  function fmtFunding(x) {
-    if (x === undefined || x === null || x === "" || Number.isNaN(Number(x))) return "—";
-    const n = Number(x) * 100;
-    return (n >= 0 ? "" : "−") + Math.abs(n).toFixed(Math.abs(n) < 0.01 ? 4 : 3) + "%";
+  function fmtFunding(rate) {
+    if (!Number.isFinite(rate)) return "—";
+    const p = rate * 100;
+    return (p>=0?"":"−") + Math.abs(p).toFixed(Math.abs(p) < 0.01 ? 4 : 3) + "%";
   }
-
-  function fmtIntervalH(x) {
-    if (!Number.isFinite(x) || x <= 0) return "—";
-    return x.toFixed(x < 10 ? 2 : 1) + "h";
+  function fmtIntervalH(h) {
+    if (!Number.isFinite(h) || h<=0) return "—";
+    return h.toFixed(h < 10 ? 2 : 1) + "h";
   }
-
-  function fmtAprFromRate(ratePerWindow, intervalH) {
-    if (!Number.isFinite(ratePerWindow) || !Number.isFinite(intervalH) || intervalH <= 0) return "—";
-    const windowsPerYear = (365 * 24) / intervalH;
+  function aprFromRate(ratePerWindow, intervalH) {
+    if (!Number.isFinite(ratePerWindow) || !Number.isFinite(intervalH) || intervalH<=0) return "—";
+    const windowsPerYear = (365*24)/intervalH;
     const apr = ratePerWindow * windowsPerYear * 100;
-    const s = (apr >= 0 ? "" : "−") + Math.abs(apr).toFixed(Math.abs(apr) < 1 ? 3 : 2) + "%";
-    return s;
+    return (apr>=0?"":"−") + Math.abs(apr).toFixed(Math.abs(apr) < 1 ? 3 : 2) + "%";
   }
-
-  function fmtMoney(x) {
+  function money(x) {
     if (!Number.isFinite(x)) return "—";
-    const n = Number(x);
-    return (n >= 0 ? "" : "−") + "$" + Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
-  }
-
-  function fmtPct(x) {
-    if (!Number.isFinite(x)) return "—";
-    const n = Number(x);
-    return (n >= 0 ? "" : "−") + Math.abs(n).toFixed(Math.abs(n) < 1 ? 3 : 2) + "%";
-  }
-
-  function setCell(id, text, cls="") {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.textContent = text;
-    el.className = "right " + cls;
-  }
-
-  function setRowHot(assetKey, isHot) {
-    const row = document.getElementById(`pr_${assetKey}`);
-    if (!row) return;
-    row.classList.toggle("hot", !!isHot);
+    return (x>=0?"":"−") + "$" + Math.abs(x).toLocaleString(undefined, { maximumFractionDigits: 2 });
   }
 
   async function fetchJson(url, options) {
-    const r = await fetch(PROXY_BASE + encodeURIComponent(url), {
-      cache: "no-store",
-      ...(options || {})
-    });
+    const r = await fetch(PROXY_BASE + encodeURIComponent(url), { cache:"no-store", ...(options||{}) });
     if (!r.ok) throw new Error(String(r.status));
     return r.json();
   }
 
-  // -------- tabs --------
-  function initTabs() {
-    const btns = document.querySelectorAll(".tab-btn");
-    const panels = {
-      prices: document.getElementById("tab-prices"),
-      funding: document.getElementById("tab-funding"),
-      leaderboard: document.getElementById("tab-leaderboard"),
-      arb: document.getElementById("tab-arb"),
-      fundarb: document.getElementById("tab-fundarb"),
-    };
+  // ===== Local storage for 24h high spread (per coin, minute bucket) =====
+  let highStore = {}; // { [coin]: [{m, spreadBpsAbs}] }
 
-    btns.forEach(b => {
-      b.addEventListener("click", () => {
-        btns.forEach(x => x.classList.remove("active"));
-        b.classList.add("active");
-
-        Object.values(panels).forEach(p => p.classList.remove("active"));
-        const key = b.getAttribute("data-tab");
-        panels[key].classList.add("active");
-
-        if (key === "arb") renderArb();
-        if (key === "fundarb") renderFundingArb();
-      });
-    });
+  function loadHighStore() {
+    try { highStore = JSON.parse(localStorage.getItem(HIGH_STORE_KEY) || "{}"); } catch { highStore = {}; }
+  }
+  function saveHighStore() {
+    try { localStorage.setItem(HIGH_STORE_KEY, JSON.stringify(highStore)); } catch {}
+  }
+  function pruneHighStore() {
+    const cutoff = nowMinuteEpoch() - HIGH_WINDOW_MINUTES;
+    for (const c of Object.keys(highStore)) {
+      const arr = Array.isArray(highStore[c]) ? highStore[c] : [];
+      highStore[c] = arr.filter(x => x && Number.isFinite(x.m) && x.m >= cutoff && Number.isFinite(x.s));
+      if (highStore[c].length === 0) delete highStore[c];
+    }
+  }
+  function updateHigh(coin, spreadAbsBps) {
+    if (!Number.isFinite(spreadAbsBps)) return;
+    const m = nowMinuteEpoch();
+    if (!Array.isArray(highStore[coin])) highStore[coin] = [];
+    const arr = highStore[coin];
+    const last = arr.length ? arr[arr.length - 1] : null;
+    if (last && last.m === m) {
+      if (spreadAbsBps > last.s) last.s = spreadAbsBps;
+    } else {
+      arr.push({ m, s: spreadAbsBps });
+    }
+    const cutoff = m - HIGH_WINDOW_MINUTES;
+    while (arr.length && arr[0].m < cutoff) arr.shift();
+  }
+  function get24hHigh(coin) {
+    const arr = highStore[coin];
+    if (!Array.isArray(arr) || !arr.length) return null;
+    let best = arr[0];
+    for (const x of arr) if (x && Number.isFinite(x.s) && x.s > best.s) best = x;
+    return best;
   }
 
-  // -------- build tables --------
+  // ===== Data caches =====
+  // prices[exchange][coin] = priceNumber
+  const prices = {};
+  // funding[exchange][coin] = { rate, intervalH }
+  const funding = {};
+
+  // ===== Fetchers =====
+  async function loadHyperliquid() {
+    // metaAndAssetCtxs returns markPx + funding
+    const j = await fetchJson("https://api.hyperliquid.xyz/info", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ type:"metaAndAssetCtxs" })
+    });
+    const meta = j[0], ctxs = j[1];
+    const map = new Map();
+    meta.universe.forEach((u,i) => map.set(u.name, ctxs[i] || {}));
+
+    for (const coin of COINS) {
+      const sym = MAP.hyper[coin];
+      if (!sym) continue;
+      const c = map.get(sym);
+      const px = Number(c?.markPx);
+      const fr = Number(c?.funding);
+      if (!prices.hyper) prices.hyper = {};
+      if (!funding.hyper) funding.hyper = {};
+      if (Number.isFinite(px)) prices.hyper[coin] = px;
+      if (Number.isFinite(fr)) funding.hyper[coin] = { rate: fr, intervalH: 1 }; // hourly
+    }
+  }
+
+  async function loadAster() {
+    const [p, prem] = await Promise.all([
+      fetchJson("https://fapi.asterdex.com/fapi/v1/ticker/price"),
+      fetchJson("https://fapi.asterdex.com/fapi/v1/premiumIndex")
+    ]);
+
+    const pMap = new Map();
+    if (Array.isArray(p)) for (const x of p) pMap.set(x.symbol, x.price);
+
+    const fMap = new Map();
+    if (Array.isArray(prem)) for (const x of prem) fMap.set(x.symbol, x);
+
+    for (const coin of COINS) {
+      const sym = MAP.aster[coin];
+      if (!sym) continue;
+
+      const px = Number(pMap.get(sym));
+      if (!prices.aster) prices.aster = {};
+      if (Number.isFinite(px)) prices.aster[coin] = px;
+
+      const obj = fMap.get(sym);
+      const r = Number(obj?.lastFundingRate ?? obj?.fundingRate ?? obj?.funding);
+      let intervalH = null;
+      const last = Number(obj?.lastFundingTime);
+      const next = Number(obj?.nextFundingTime);
+      if (Number.isFinite(last) && Number.isFinite(next) && next > last) intervalH = (next-last)/3600000;
+      if (!Number.isFinite(intervalH) || intervalH<=0) intervalH = 8; // safe fallback
+
+      if (!funding.aster) funding.aster = {};
+      if (Number.isFinite(r)) funding.aster[coin] = { rate: r, intervalH };
+    }
+  }
+
+  async function loadOKX() {
+    // Fetch tickers + funding-rate per instrument (simple + reliable)
+    const tickTasks = [];
+    const fundTasks = [];
+
+    for (const coin of COINS) {
+      const instId = MAP.okx[coin];
+      if (!instId) continue;
+
+      tickTasks.push((async () => {
+        const j = await fetchJson(`https://www.okx.com/api/v5/market/ticker?instId=${encodeURIComponent(instId)}`);
+        const d = j?.data?.[0];
+        const px = Number(d?.last ?? d?.markPx ?? d?.idxPx);
+        if (!prices.okx) prices.okx = {};
+        if (Number.isFinite(px)) prices.okx[coin] = px;
+      })());
+
+      fundTasks.push((async () => {
+        const j = await fetchJson(`https://www.okx.com/api/v5/public/funding-rate?instId=${encodeURIComponent(instId)}`);
+        const d = j?.data?.[0];
+        const r = Number(d?.fundingRate);
+        const ft = Number(d?.fundingTime);
+        const nft = Number(d?.nextFundingTime);
+        let intervalH = null;
+        if (Number.isFinite(ft) && Number.isFinite(nft) && nft > ft) intervalH = (nft-ft)/3600000;
+        if (!Number.isFinite(intervalH) || intervalH<=0) intervalH = 8;
+        if (!funding.okx) funding.okx = {};
+        if (Number.isFinite(r)) funding.okx[coin] = { rate: r, intervalH };
+      })());
+    }
+
+    await Promise.allSettled([...tickTasks, ...fundTasks]);
+  }
+
+  async function loadKrakenFutures() {
+    // All tickers in one shot
+    const j = await fetchJson("https://futures.kraken.com/derivatives/api/v3/tickers");
+    const arr = j?.tickers || j?.result || j;
+    const tMap = new Map();
+    if (Array.isArray(arr)) {
+      for (const t of arr) {
+        const sym = t?.symbol || t?.instrument || t?.product_id;
+        if (sym) tMap.set(sym, t);
+      }
+    }
+
+    if (!prices.kraken) prices.kraken = {};
+    if (!funding.kraken) funding.kraken = {};
+
+    for (const coin of COINS) {
+      const sym = MAP.kraken[coin];
+      const t = tMap.get(sym);
+      if (!t) continue;
+
+      const px = Number(
+        t?.markPrice ?? t?.mark_price ?? t?.last ?? t?.lastPrice ?? t?.last_price
+      );
+      if (Number.isFinite(px)) prices.kraken[coin] = px;
+
+      // Funding fields can vary; try common names
+      const fr = Number(
+        t?.fundingRate ?? t?.funding_rate ?? t?.funding_rate_prediction ?? t?.fundingRatePrediction
+      );
+
+      // Kraken perps are typically hourly; if a next_funding_time exists we could infer later, but keep 1h default
+      if (Number.isFinite(fr)) funding.kraken[coin] = { rate: fr, intervalH: 1 };
+    }
+  }
+
+  async function refreshPrices() {
+    const start = Date.now();
+    priceStatus.textContent = "Updating…";
+    priceStatus.className = "muted";
+
+    // Clear only selected exchanges so removed ones don't show stale
+    for (const ex of Object.keys(prices)) prices[ex] = {};
+
+    const tasks = [];
+    if (selectedEx.has("hyper")) tasks.push(loadHyperliquid());
+    if (selectedEx.has("aster")) tasks.push(loadAster()); // includes prices
+    if (selectedEx.has("okx")) tasks.push(loadOKX());
+    if (selectedEx.has("kraken")) tasks.push(loadKrakenFutures());
+
+    await Promise.allSettled(tasks);
+
+    renderPrices();
+    renderArb();
+    const ms = Date.now() - start;
+    priceStatus.textContent = `Updated: ${new Date().toLocaleTimeString()} (${ms} ms)`;
+    priceStatus.className = "muted ok";
+  }
+
+  async function refreshFunding() {
+    const start = Date.now();
+    fundingStatus.textContent = "Updating…";
+    fundingStatus.className = "muted";
+
+    for (const ex of Object.keys(funding)) funding[ex] = {};
+
+    // Most loaders already also fill funding (Hyper, Aster, OKX, Kraken)
+    const tasks = [];
+    if (selectedEx.has("hyper")) tasks.push(loadHyperliquid());
+    if (selectedEx.has("aster")) tasks.push(loadAster());
+    if (selectedEx.has("okx")) tasks.push(loadOKX());
+    if (selectedEx.has("kraken")) tasks.push(loadKrakenFutures());
+
+    await Promise.allSettled(tasks);
+
+    renderFunding();
+    renderFundingArb();
+    const ms = Date.now() - start;
+    fundingStatus.textContent = `Updated: ${new Date().toLocaleTimeString()} (${ms} ms)`;
+    fundingStatus.className = "muted ok";
+  }
+
+  // ===== Render tables based on filters =====
   function buildTables() {
-    priceRows.innerHTML = ASSETS.map(a => `
-      <tr id="pr_${a.key}">
-        <td class="asset">${a.key}</td>
-        <td class="right" id="hp_${a.key}">Loading…</td>
-        <td class="right" id="ap_${a.key}">Loading…</td>
-        <td class="right" id="df_${a.key}">Loading…</td>
-        <td class="right" id="bp_${a.key}">Loading…</td>
-        <td class="right" id="bh_${a.key}">Loading…</td>
-      </tr>
-    `).join("");
+    const exList = EXCHANGES.filter(e => selectedEx.has(e.key));
+    const coinsList = COINS.filter(c => selectedCoins.has(c));
 
-    fundingRows.innerHTML = ASSETS.map(a => `
+    // Prices head
+    pricesHead.innerHTML = `
       <tr>
-        <td class="asset">${a.key}</td>
-
-        <td class="right" id="hf_${a.key}">Loading…</td>
-        <td class="right" id="hi_${a.key}">Loading…</td>
-        <td class="right" id="ha_${a.key}">Loading…</td>
-
-        <td class="right" id="af_${a.key}">Loading…</td>
-        <td class="right" id="ai_${a.key}">Loading…</td>
-        <td class="right" id="aa_${a.key}">Loading…</td>
+        <th>Asset</th>
+        ${exList.map(e => `<th class="right">${e.name}</th>`).join("")}
+        <th class="right">Spread (bps)</th>
+        <th class="right">24h High (bps)</th>
       </tr>
-    `).join("");
+    `;
 
-    leaderRows.innerHTML = `<tr><td colspan="5" class="muted">Waiting for first price refresh…</td></tr>`;
+    // Funding head: 3 cols per exchange
+    fundingHead.innerHTML = `
+      <tr>
+        <th>Asset</th>
+        ${exList.map(e => `
+          <th class="right">${e.name} Funding</th>
+          <th class="right">${e.name} Interval</th>
+          <th class="right">${e.name} 365-day</th>
+        `).join("")}
+      </tr>
+    `;
+
+    // Build bodies (rows are re-rendered each refresh too)
+    priceRows.innerHTML = coinsList.map(c => `<tr id="pr_${c}"><td class="asset">${c}</td></tr>`).join("");
+    fundingRows.innerHTML = coinsList.map(c => `<tr id="fr_${c}"><td class="asset">${c}</td></tr>`).join("");
   }
 
-  // -------- UI init --------
-  function initSelectorsAndInputs() {
-    arbAsset.innerHTML = ASSETS.map(a => `<option value="${a.key}">${a.key}</option>`).join("");
-    arbAsset.value = "BTC";
+  function renderPrices() {
+    pruneHighStore();
 
-    faAsset.innerHTML = ASSETS.map(a => `<option value="${a.key}">${a.key}</option>`).join("");
-    faAsset.value = "BTC";
+    const exList = EXCHANGES.filter(e => selectedEx.has(e.key));
+    const coinsList = COINS.filter(c => selectedCoins.has(c));
 
-    ["change","input"].forEach(ev => {
-      arbAsset.addEventListener(ev, renderArb);
-      arbNotional.addEventListener(ev, renderArb);
-      arbConvBps.addEventListener(ev, renderArb);
-      arbFeesBps.addEventListener(ev, renderArb);
-      arbSlipBps.addEventListener(ev, renderArb);
-      arbDir.addEventListener(ev, renderArb);
+    priceRows.innerHTML = coinsList.map(coin => {
+      const pxs = [];
+      const cells = exList.map(e => {
+        const p = prices?.[e.key]?.[coin];
+        if (Number.isFinite(p)) pxs.push(p);
+        return `<td class="right">${fmtUsd(p)}</td>`;
+      }).join("");
 
-      faAsset.addEventListener(ev, renderFundingArb);
-      faNotional.addEventListener(ev, renderFundingArb);
-      faLongVenue.addEventListener(ev, renderFundingArb);
-      faShortVenue.addEventListener(ev, renderFundingArb);
-      faHoldHours.addEventListener(ev, renderFundingArb);
-      faCostsBps.addEventListener(ev, renderFundingArb);
-      faSignHyper.addEventListener(ev, renderFundingArb);
-      faSignAster.addEventListener(ev, renderFundingArb);
-    });
+      let spreadBps = null;
+      if (pxs.length >= 2) {
+        const min = Math.min(...pxs);
+        const max = Math.max(...pxs);
+        if (min > 0) spreadBps = 10000 * (max - min) / min;
+      }
 
-    arbRecalc.addEventListener("click", renderArb);
-    faRecalc.addEventListener("click", renderFundingArb);
+      if (Number.isFinite(spreadBps)) updateHigh(coin, spreadBps);
+      const hi = get24hHigh(coin);
+
+      const hot = Number.isFinite(spreadBps) && spreadBps >= BPS_HIGHLIGHT ? "hot" : "";
+      const spreadTxt = Number.isFinite(spreadBps) ? fmtBpsAbs(spreadBps) : "—";
+      const highTxt = hi ? fmtBpsAbs(hi.s) : "—";
+      const title = hi ? `title="Observed at: ${new Date(hi.m*60000).toLocaleString()}"` : "";
+
+      return `
+        <tr class="${hot}">
+          <td class="asset">${coin}</td>
+          ${cells}
+          <td class="right">${spreadTxt}</td>
+          <td class="right" ${title}>${highTxt}</td>
+        </tr>
+      `;
+    }).join("");
+
+    saveHighStore();
   }
 
-  // -------- calculators --------
+  function renderFunding() {
+    const exList = EXCHANGES.filter(e => selectedEx.has(e.key));
+    const coinsList = COINS.filter(c => selectedCoins.has(c));
+
+    fundingRows.innerHTML = coinsList.map(coin => {
+      const cells = exList.map(e => {
+        const rec = funding?.[e.key]?.[coin];
+        const r = Number(rec?.rate);
+        const ih = Number(rec?.intervalH);
+        return `
+          <td class="right">${fmtFunding(r)}</td>
+          <td class="right">${fmtIntervalH(ih)}</td>
+          <td class="right">${aprFromRate(r, ih)}</td>
+        `;
+      }).join("");
+
+      return `<tr><td class="asset">${coin}</td>${cells}</tr>`;
+    }).join("");
+  }
+
+  // ===== Dropdowns / calculators =====
+  function refreshAllDropdowns() {
+    const coinsList = COINS.filter(c => selectedCoins.has(c));
+    const exList = EXCHANGES.filter(e => selectedEx.has(e.key));
+
+    arbAsset.innerHTML = coinsList.map(c => `<option value="${c}">${c}</option>`).join("");
+    faAsset.innerHTML = coinsList.map(c => `<option value="${c}">${c}</option>`).join("");
+
+    arbBuyEx.innerHTML = exList.map(e => `<option value="${e.key}">${e.name}</option>`).join("");
+    arbSellEx.innerHTML = exList.map(e => `<option value="${e.key}">${e.name}</option>`).join("");
+
+    faLongEx.innerHTML = exList.map(e => `<option value="${e.key}">${e.name}</option>`).join("");
+    faShortEx.innerHTML = exList.map(e => `<option value="${e.key}">${e.name}</option>`).join("");
+
+    // sensible defaults
+    if (exList.length >= 2) {
+      arbBuyEx.value = exList[0].key;
+      arbSellEx.value = exList[1].key;
+      faLongEx.value = exList[0].key;
+      faShortEx.value = exList[1].key;
+    }
+  }
+
   function renderArb() {
-    const asset = arbAsset.value;
-    const row = (latestSnapshot || []).find(x => x.key === asset);
+    const coin = arbAsset.value;
+    const buy = arbBuyEx.value;
+    const sell = arbSellEx.value;
+
+    const buyPx = Number(prices?.[buy]?.[coin]);
+    const sellPx = Number(prices?.[sell]?.[coin]);
+
+    let curBps = null;
+    if (Number.isFinite(buyPx) && Number.isFinite(sellPx) && buyPx > 0) {
+      // Spread from buy to sell: (sell - buy)/buy
+      curBps = 10000 * (sellPx - buyPx) / buyPx;
+    }
+
+    arbCurBps.textContent = Number.isFinite(curBps) ? fmtBpsSigned(curBps).text : "—";
 
     const notional = Number(arbNotional.value || 0);
-    const convBps = Number(arbConvBps.value || 0);
-    const feesBps = Number(arbFeesBps.value || 0);
-    const slipBps = Number(arbSlipBps.value || 0);
+    const conv = Number(arbConvBps.value || 0);
+    const costsBps = Number(arbCostsBps.value || 0);
 
-    const curBps = Number.isFinite(row?.bps) ? row.bps : null;
-    arbCurBps.textContent = (curBps === null) ? "—" : fmtBps(curBps).text;
+    const gross = notional * (conv / 10000);
+    const costs = notional * (costsBps / 10000);
+    const net = gross - costs;
 
-    let suggestion = "—";
-    const dir = arbDir.value;
-    if (dir === "auto") {
-      if (curBps === null) suggestion = "—";
-      else if (curBps >= 0) suggestion = "Sell Aster / Buy Hyper";
-      else suggestion = "Buy Aster / Sell Hyper";
-    } else if (dir === "sell_aster_buy_hyper") suggestion = "Sell Aster / Buy Hyper";
-    else if (dir === "buy_aster_sell_hyper") suggestion = "Buy Aster / Sell Hyper";
-    arbTrade.textContent = suggestion;
-
-    const gross = notional * (convBps / 10000);
-    const fees = notional * (feesBps / 10000);
-    const slip = notional * (slipBps / 10000);
-    const net = gross - fees - slip;
-
-    arbGross.textContent = fmtMoney(gross);
-    arbFees.textContent = fmtMoney(fees);
-    arbSlip.textContent = fmtMoney(slip);
-    arbNet.textContent = fmtMoney(net);
+    arbGross.textContent = money(gross);
+    arbCosts.textContent = money(costs);
+    arbNet.textContent = money(net);
     arbNet.className = "v " + (net >= 0 ? "pos" : "neg");
   }
 
-  function applySign(rate, mode) {
-    const r = Number(rate);
-    if (!Number.isFinite(r)) return null;
-    return mode === "invert" ? (-r) : r;
-  }
-
   function renderFundingArb() {
-    const asset = faAsset.value;
+    const coin = faAsset.value;
+    const longEx = faLongEx.value;
+    const shortEx = faShortEx.value;
+
+    const longRec = funding?.[longEx]?.[coin];
+    const shortRec = funding?.[shortEx]?.[coin];
+
+    const longRate = Number(longRec?.rate);
+    const shortRate = Number(shortRec?.rate);
+    const longInt = Number(longRec?.intervalH);
+    const shortInt = Number(shortRec?.intervalH);
+
     const holdH = Math.max(0, Number(faHoldHours.value || 0));
     const notional = Number(faNotional.value || 0);
     const costsBps = Number(faCostsBps.value || 0);
 
-    const rec = latestFunding[asset] || {};
-    const hyperRate = applySign(rec.hyper?.rate, faSignHyper.value);
-    const asterRate = applySign(rec.aster?.rate, faSignAster.value);
+    const longWin = (Number.isFinite(longInt) && longInt > 0) ? (holdH / longInt) : null;
+    const shortWin = (Number.isFinite(shortInt) && shortInt > 0) ? (holdH / shortInt) : null;
 
-    const hyperInt = rec.hyper?.intervalH;
-    const asterInt = rec.aster?.intervalH;
+    faLongFund.textContent = fmtFunding(longRate);
+    faLongInt.textContent = fmtIntervalH(longInt);
+    faLongWin.textContent = (longWin === null) ? "—" : longWin.toFixed(2);
 
-    const hyperWin = (Number.isFinite(hyperInt) && hyperInt > 0) ? (holdH / hyperInt) : null;
-    const asterWin = (Number.isFinite(asterInt) && asterInt > 0) ? (holdH / asterInt) : null;
+    faShortFund.textContent = fmtFunding(shortRate);
+    faShortInt.textContent = fmtIntervalH(shortInt);
+    faShortWin.textContent = (shortWin === null) ? "—" : shortWin.toFixed(2);
 
-    faHyperFund.textContent = fmtFunding(hyperRate);
-    faAsterFund.textContent = fmtFunding(asterRate);
-    faHyperInt.textContent = fmtIntervalH(hyperInt);
-    faAsterInt.textContent = fmtIntervalH(asterInt);
-    faHyperWin.textContent = (hyperWin === null) ? "—" : hyperWin.toFixed(2);
-    faAsterWin.textContent = (asterWin === null) ? "—" : asterWin.toFixed(2);
-
-    const longVenue = faLongVenue.value;
-    const shortVenue = faShortVenue.value;
-
-    if (longVenue === shortVenue) {
-      faCarry.textContent = "Choose different venues";
+    if (longEx === shortEx) {
       faFundingPnl.textContent = "—";
       faCosts.textContent = "—";
-      faNet.textContent = "—";
-      faNetPct.textContent = "—";
-      faCarryApr.textContent = "—";
+      faNet.textContent = "Choose different venues";
       return;
     }
 
-    const longRate = (longVenue === "hyper") ? hyperRate : asterRate;
-    const shortRate = (shortVenue === "hyper") ? hyperRate : asterRate;
-
-    const longWin = (longVenue === "hyper") ? hyperWin : asterWin;
-    const shortWin = (shortVenue === "hyper") ? hyperWin : asterWin;
-
-    const longInt = (longVenue === "hyper") ? hyperInt : asterInt;
-    const shortInt = (shortVenue === "hyper") ? hyperInt : asterInt;
-
-    if (!Number.isFinite(longRate) || !Number.isFinite(shortRate) || !Number.isFinite(longWin) || !Number.isFinite(shortWin) ||
-        !Number.isFinite(longInt) || !Number.isFinite(shortInt)) {
-      faCarry.textContent = "Waiting for funding + intervals…";
+    if (!Number.isFinite(longRate) || !Number.isFinite(shortRate) || !Number.isFinite(longWin) || !Number.isFinite(shortWin)) {
       faFundingPnl.textContent = "—";
       faCosts.textContent = "—";
-      faNet.textContent = "—";
-      faNetPct.textContent = "—";
-      faCarryApr.textContent = "—";
+      faNet.textContent = "Waiting for funding…";
       return;
     }
 
+    // Convention: positive funding = longs pay shorts
     const pnlLong = notional * (-longRate) * longWin;
     const pnlShort = notional * (+shortRate) * shortWin;
     const fundingPnl = pnlLong + pnlShort;
 
     const costs = notional * (costsBps / 10000);
     const net = fundingPnl - costs;
-    const netPct = (notional === 0) ? null : (100 * net / notional);
 
-    faFundingPnl.textContent = fmtMoney(fundingPnl);
-    faCosts.textContent = fmtMoney(costs);
-    faNet.textContent = fmtMoney(net);
+    faFundingPnl.textContent = money(fundingPnl);
+    faCosts.textContent = money(costs);
+    faNet.textContent = money(net);
     faNet.className = "v " + (net >= 0 ? "pos" : "neg");
-    faNetPct.textContent = fmtPct(netPct);
-    faNetPct.className = "v " + ((netPct ?? 0) >= 0 ? "pos" : "neg");
-
-    faCarry.textContent = net > 0 ? "Positive carry" : (net < 0 ? "Negative carry" : "Flat carry");
-
-    const netApr = (((-longRate) / longInt) + ((+shortRate) / shortInt)) * 24 * 365 * 100;
-    faCarryApr.textContent = (netApr >= 0 ? "" : "−") + Math.abs(netApr).toFixed(Math.abs(netApr) < 1 ? 3 : 2) + "%";
-    faCarryApr.className = "v " + (netApr >= 0 ? "pos" : "neg");
   }
 
-  // -------- API loaders --------
-  async function loadHyperliquidCtx() {
-    const j = await fetchJson("https://api.hyperliquid.xyz/info", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "metaAndAssetCtxs" })
-    });
+  // ===== Buttons/events =====
+  arbRecalc.onclick = renderArb;
+  faRecalc.onclick = renderFundingArb;
 
-    const meta = j[0], ctxs = j[1];
-    const out = new Map();
-    meta.universe.forEach((u, i) => {
-      const c = ctxs[i] || {};
-      out.set(u.name, { markPx: c.markPx, funding: c.funding });
-    });
-    return out;
-  }
+  ["change","input"].forEach(ev => {
+    arbAsset.addEventListener(ev, renderArb);
+    arbBuyEx.addEventListener(ev, renderArb);
+    arbSellEx.addEventListener(ev, renderArb);
+    arbNotional.addEventListener(ev, renderArb);
+    arbConvBps.addEventListener(ev, renderArb);
+    arbCostsBps.addEventListener(ev, renderArb);
 
-  async function loadAsterPricesAll() {
-    const j = await fetchJson("https://fapi.asterdex.com/fapi/v1/ticker/price");
-    const out = new Map();
-    if (Array.isArray(j)) j.forEach(x => out.set(x.symbol, x.price));
-    return out;
-  }
+    faAsset.addEventListener(ev, renderFundingArb);
+    faLongEx.addEventListener(ev, renderFundingArb);
+    faShortEx.addEventListener(ev, renderFundingArb);
+    faNotional.addEventListener(ev, renderFundingArb);
+    faHoldHours.addEventListener(ev, renderFundingArb);
+    faCostsBps.addEventListener(ev, renderFundingArb);
+  });
 
-  async function loadAsterPremiumAll() {
-    const j = await fetchJson("https://fapi.asterdex.com/fapi/v1/premiumIndex");
-    const out = new Map();
-    if (Array.isArray(j)) j.forEach(x => out.set(x.symbol, x));
-    return out;
-  }
-
-  function inferIntervalHoursFromPremium(obj) {
-    if (!obj || typeof obj !== "object") return null;
-
-    const last = Number(obj.lastFundingTime);
-    const next = Number(obj.nextFundingTime);
-    if (Number.isFinite(last) && Number.isFinite(next) && next > last) {
-      return (next - last) / 3600000;
-    }
-
-    const fi = Number(obj.fundingInterval);
-    if (Number.isFinite(fi) && fi > 0) {
-      if (fi > 100000) return fi / 3600000; // ms
-      if (fi > 60) return fi / 3600;        // seconds
-      return fi;                            // hours
-    }
-
-    const ih = Number(obj.intervalHours);
-    if (Number.isFinite(ih) && ih > 0) return ih;
-
-    return 8; // fallback
-  }
-
-  // -------- leaderboard --------
-  function renderLeaderboard() {
-    const rows = (latestSnapshot || [])
-      .filter(x => Number.isFinite(x.bps))
-      .sort((a, b) => Math.abs(b.bps) - Math.abs(a.bps))
-      .slice(0, 50);
-
-    leaderRows.innerHTML = rows.map(x => {
-      const d = fmtDiff(x.diffUsd);
-      const b = fmtBps(x.bps);
-      const hot = Math.abs(x.bps) >= BPS_HIGHLIGHT ? "hot" : "";
-      return `
-        <tr class="${hot}">
-          <td class="asset">${x.key}</td>
-          <td class="right">${fmtUsd(x.hPx)}</td>
-          <td class="right">${fmtUsd(x.aPx)}</td>
-          <td class="right ${d.cls}">${d.text}</td>
-          <td class="right ${b.cls}">${b.text}</td>
-        </tr>
-      `;
-    }).join("") || `<tr><td colspan="5" class="muted">No data yet…</td></tr>`;
-  }
-
-  // -------- refresh loops --------
-  async function refreshPrices() {
-    const started = Date.now();
-    priceStatus.textContent = "Updating…";
-    priceStatus.className = "muted";
-    leaderStatus.textContent = "Updating…";
-
-    const [hlRes, apRes] = await Promise.allSettled([
-      loadHyperliquidCtx(),
-      loadAsterPricesAll()
-    ]);
-
-    const hl = (hlRes.status === "fulfilled") ? hlRes.value : new Map();
-    const ap = (apRes.status === "fulfilled") ? apRes.value : new Map();
-
-    const snap = [];
-
-    for (const a of ASSETS) {
-      const hPxRaw = hl.get(a.hyper)?.markPx;
-      const aPxRaw = ap.get(a.aster);
-
-      setCell(`hp_${a.key}`, fmtUsd(hPxRaw), (hlRes.status === "rejected" ? "err" : ""));
-      setCell(`ap_${a.key}`, fmtUsd(aPxRaw), (apRes.status === "rejected" ? "err" : ""));
-
-      const hPx = Number(hPxRaw);
-      const aPx = Number(aPxRaw);
-
-      const diffUsd = (Number.isFinite(aPx) && Number.isFinite(hPx)) ? (aPx - hPx) : null;
-      const d = fmtDiff(diffUsd);
-      setCell(`df_${a.key}`, d.text, d.cls);
-
-      const bps = (Number.isFinite(aPx) && Number.isFinite(hPx) && hPx !== 0)
-        ? (10000 * (aPx - hPx) / hPx)
-        : null;
-      const b = fmtBps(bps);
-      setCell(`bp_${a.key}`, b.text, b.cls);
-
-      // ✅ update 24h high tracker
-      if (Number.isFinite(bps)) updateHigh(a.key, bps);
-
-      const best = get24hHigh(a.key);
-      if (!best) {
-        setCell(`bh_${a.key}`, "—");
-      } else {
-        const bestB = fmtBps(best.bps);
-        setCell(`bh_${a.key}`, bestB.text, bestB.cls);
-
-        // optional tooltip: when it happened
-        const el = document.getElementById(`bh_${a.key}`);
-        if (el) el.title = "Observed at: " + new Date(best.m * 60000).toLocaleString();
-      }
-
-      setRowHot(a.key, Number.isFinite(bps) && Math.abs(bps) >= BPS_HIGHLIGHT);
-
-      snap.push({ key: a.key, hPx, aPx, diffUsd, bps });
-    }
-
-    // keep store tidy + persist
-    pruneHighStore();
-    saveHighStore();
-
-    latestSnapshot = snap;
-    renderLeaderboard();
-    renderArb();
-    renderFundingArb();
-
-    const ms = Date.now() - started;
-    priceStatus.textContent = `Updated: ${new Date().toLocaleTimeString()} (${ms} ms)`;
-    priceStatus.className = "muted ok";
-    leaderStatus.textContent = `Updated: ${new Date().toLocaleTimeString()} (${ms} ms)`;
-  }
-
-  async function refreshFunding() {
-    const started = Date.now();
-    fundingStatus.textContent = "Updating…";
-    fundingStatus.className = "muted";
-
-    const [hlRes, asterPremRes] = await Promise.allSettled([
-      loadHyperliquidCtx(),
-      loadAsterPremiumAll()
-    ]);
-
-    const hl = (hlRes.status === "fulfilled") ? hlRes.value : new Map();
-    const asterPrem = (asterPremRes.status === "fulfilled") ? asterPremRes.value : new Map();
-
-    const HL_INTERVAL_H = 1; // hourly
-
-    const lf = {};
-
-    for (const a of ASSETS) {
-      const hRateRaw = hl.get(a.hyper)?.funding;
-      const hRate = Number(hRateRaw);
-
-      const aObj = asterPrem.get(a.aster);
-      const aRateRaw = aObj?.lastFundingRate ?? aObj?.fundingRate ?? aObj?.funding ?? null;
-      const aRate = Number(aRateRaw);
-      const aIntH = inferIntervalHoursFromPremium(aObj);
-
-      setCell(`hf_${a.key}`, fmtFunding(hRate), (hlRes.status === "rejected" ? "err" : ""));
-      setCell(`hi_${a.key}`, fmtIntervalH(HL_INTERVAL_H));
-      setCell(`ha_${a.key}`, fmtAprFromRate(hRate, HL_INTERVAL_H));
-
-      setCell(`af_${a.key}`, fmtFunding(aRate), (asterPremRes.status === "rejected" ? "err" : ""));
-      setCell(`ai_${a.key}`, fmtIntervalH(aIntH));
-      setCell(`aa_${a.key}`, fmtAprFromRate(aRate, aIntH));
-
-      lf[a.key] = {
-        hyper: { rate: hRate, intervalH: HL_INTERVAL_H },
-        aster: { rate: aRate, intervalH: aIntH }
-      };
-    }
-
-    latestFunding = lf;
-    renderFundingArb();
-
-    const ms = Date.now() - started;
-    fundingStatus.textContent = `Updated: ${new Date().toLocaleTimeString()} (${ms} ms)`;
-    fundingStatus.className = "muted ok";
-  }
-
-  // -------- init --------
+  // ===== Init =====
   function init() {
+    initTabs();
+
+    loadFilters();
     loadHighStore();
     pruneHighStore();
     saveHighStore();
 
-    initTabs();
+    renderFilterUI();
     buildTables();
-    initSelectorsAndInputs();
+    refreshAllDropdowns();
 
+    // first fetch
     refreshPrices();
     refreshFunding();
 
-    setInterval(refreshPrices, 2000);
-    setInterval(refreshFunding, 60000);
+    setInterval(refreshPrices, PRICES_REFRESH_MS);
+    setInterval(refreshFunding, FUNDING_REFRESH_MS);
   }
 
   init();
