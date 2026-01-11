@@ -121,6 +121,7 @@
             <th class="right">Aster (Last)</th>
             <th class="right">$ Diff</th>
             <th class="right">bps Diff</th>
+            <th class="right">24h High (bps)</th>
           </tr>
         </thead>
         <tbody id="priceRows"></tbody>
@@ -128,7 +129,7 @@
 
       <div class="muted">
         <b>Row will highlight when price difference exceeds or equals 5bp</b><br/>
-        $ Diff is positive when Aster is trading higher than Hyperliquid. bps Diff uses Hyperliquid as the denominator.
+        24h High (bps) is the largest absolute bps difference observed in the last 24 hours (stored in your browser).
       </div>
     </div>
   </div>
@@ -352,6 +353,10 @@
   const PROXY_BASE = "https://purple-sky-264e.jasper-cooney.workers.dev/?url=";
   const BPS_HIGHLIGHT = 5;
 
+  // 24h high tracking (minute buckets)
+  const HIGH_WINDOW_MINUTES = 24 * 60; // 1440
+  const HIGH_STORE_KEY = "perpinsights_24h_high_bps_v1";
+
   const ASSETS = [
     { key:"BTC", hyper:"BTC", aster:"BTCUSDT" },
     { key:"ETH", hyper:"ETH", aster:"ETHUSDT" },
@@ -421,7 +426,67 @@
   let latestSnapshot = []; // { key, hPx, aPx, diffUsd, bps }
   let latestFunding = {};  // { [assetKey]: { hyper:{rate, intervalH}, aster:{rate, intervalH} } }
 
+  // 24h highs store: { [assetKey]: [{m:<minuteEpoch>, bps:<signed bps max abs in that minute>}, ...] }
+  let highStore = {};
+
   // -------- helpers --------
+  function nowMinuteEpoch() { return Math.floor(Date.now() / 60000); }
+
+  function loadHighStore() {
+    try {
+      const raw = localStorage.getItem(HIGH_STORE_KEY);
+      highStore = raw ? JSON.parse(raw) : {};
+    } catch {
+      highStore = {};
+    }
+  }
+
+  function saveHighStore() {
+    try { localStorage.setItem(HIGH_STORE_KEY, JSON.stringify(highStore)); } catch {}
+  }
+
+  function pruneHighStore() {
+    const cutoff = nowMinuteEpoch() - HIGH_WINDOW_MINUTES;
+    for (const k of Object.keys(highStore)) {
+      const arr = Array.isArray(highStore[k]) ? highStore[k] : [];
+      highStore[k] = arr.filter(x => x && Number.isFinite(x.m) && x.m >= cutoff && Number.isFinite(x.bps));
+      if (highStore[k].length === 0) delete highStore[k];
+    }
+  }
+
+  function updateHigh(assetKey, bpsSigned) {
+    if (!Number.isFinite(bpsSigned)) return;
+
+    const m = nowMinuteEpoch();
+    if (!highStore[assetKey] || !Array.isArray(highStore[assetKey])) highStore[assetKey] = [];
+
+    const arr = highStore[assetKey];
+    const last = arr.length ? arr[arr.length - 1] : null;
+
+    if (last && last.m === m) {
+      // keep whichever has bigger abs bps for this minute bucket
+      if (Math.abs(bpsSigned) > Math.abs(last.bps)) last.bps = bpsSigned;
+    } else {
+      arr.push({ m, bps: bpsSigned });
+    }
+
+    // prune extra old minutes
+    const cutoff = m - HIGH_WINDOW_MINUTES;
+    while (arr.length && arr[0].m < cutoff) arr.shift();
+  }
+
+  function get24hHigh(assetKey) {
+    const arr = highStore[assetKey];
+    if (!Array.isArray(arr) || arr.length === 0) return null;
+
+    let best = arr[0];
+    for (const x of arr) {
+      if (!x || !Number.isFinite(x.bps)) continue;
+      if (!best || Math.abs(x.bps) > Math.abs(best.bps)) best = x;
+    }
+    return best || null; // {m, bps}
+  }
+
   function fmtUsd(x) {
     if (x === undefined || x === null || x === "" || Number.isNaN(Number(x))) return "—";
     const n = Number(x);
@@ -536,6 +601,7 @@
         <td class="right" id="ap_${a.key}">Loading…</td>
         <td class="right" id="df_${a.key}">Loading…</td>
         <td class="right" id="bp_${a.key}">Loading…</td>
+        <td class="right" id="bh_${a.key}">Loading…</td>
       </tr>
     `).join("");
 
@@ -683,7 +749,6 @@
       return;
     }
 
-    // Funding convention assumed: positive funding => longs pay shorts.
     const pnlLong = notional * (-longRate) * longWin;
     const pnlShort = notional * (+shortRate) * shortWin;
     const fundingPnl = pnlLong + pnlShort;
@@ -701,7 +766,6 @@
 
     faCarry.textContent = net > 0 ? "Positive carry" : (net < 0 ? "Negative carry" : "Flat carry");
 
-    // Net carry 365-day (approx):
     const netApr = (((-longRate) / longInt) + ((+shortRate) / shortInt)) * 24 * 365 * 100;
     faCarryApr.textContent = (netApr >= 0 ? "" : "−") + Math.abs(netApr).toFixed(Math.abs(netApr) < 1 ? 3 : 2) + "%";
     faCarryApr.className = "v " + (netApr >= 0 ? "pos" : "neg");
@@ -820,10 +884,29 @@
       const b = fmtBps(bps);
       setCell(`bp_${a.key}`, b.text, b.cls);
 
+      // ✅ update 24h high tracker
+      if (Number.isFinite(bps)) updateHigh(a.key, bps);
+
+      const best = get24hHigh(a.key);
+      if (!best) {
+        setCell(`bh_${a.key}`, "—");
+      } else {
+        const bestB = fmtBps(best.bps);
+        setCell(`bh_${a.key}`, bestB.text, bestB.cls);
+
+        // optional tooltip: when it happened
+        const el = document.getElementById(`bh_${a.key}`);
+        if (el) el.title = "Observed at: " + new Date(best.m * 60000).toLocaleString();
+      }
+
       setRowHot(a.key, Number.isFinite(bps) && Math.abs(bps) >= BPS_HIGHLIGHT);
 
       snap.push({ key: a.key, hPx, aPx, diffUsd, bps });
     }
+
+    // keep store tidy + persist
+    pruneHighStore();
+    saveHighStore();
 
     latestSnapshot = snap;
     renderLeaderboard();
@@ -886,6 +969,10 @@
 
   // -------- init --------
   function init() {
+    loadHighStore();
+    pruneHighStore();
+    saveHighStore();
+
     initTabs();
     buildTables();
     initSelectorsAndInputs();
