@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -1107,8 +1108,25 @@
       const px = Number(t?.markPrice ?? t?.mark_price ?? t?.last ?? t?.lastPrice ?? t?.last_price);
       if (Number.isFinite(px)) prices.kraken[coin] = px;
 
-      const fr = Number(t?.fundingRate ?? t?.funding_rate ?? t?.funding_rate_prediction ?? t?.fundingRatePrediction);
-      if (Number.isFinite(fr)) funding.kraken[coin] = { rate: fr, intervalH: 1 };
+ // Kraken: use relative_funding_rate (best proxy for "funding % per hour")
+const fr =
+  Number(
+    t?.relative_funding_rate ??
+    t?.relativeFundingRate ??
+    t?.relative_funding_rate_prediction ??
+    t?.relativeFundingRatePrediction ??
+    // fallback only if relative_* not present:
+    t?.funding_rate ??
+    t?.fundingRate ??
+    t?.funding_rate_prediction ??
+    t?.fundingRatePrediction
+  );
+
+if (!funding.kraken) funding.kraken = {};
+
+// Kraken multi-collateral perps are realized hourly in many cases; keep 1h.
+if (Number.isFinite(fr)) funding.kraken[coin] = { rate: fr, intervalH: 1 };
+
     }
   }
 
